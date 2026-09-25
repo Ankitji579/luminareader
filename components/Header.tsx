@@ -78,14 +78,15 @@ export default function Header() {
           <ThemeToggle />
 
           <label
-            className="hidden sm:flex cursor-pointer items-center gap-2 px-4 py-2 ml-1 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold shadow-md hover:scale-105 active:scale-95 transition-all"
+            className="flex cursor-pointer items-center justify-center gap-2 px-3 sm:px-4 py-2 ml-1 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold shadow-md hover:scale-105 active:scale-95 transition-all"
+            title="Upload Book"
           >
             {isUploading ? (
               <div className="w-4 h-4 border-2 border-white dark:border-slate-900 border-t-transparent rounded-full animate-spin" />
             ) : (
               <UploadCloud className="w-4 h-4" />
             )}
-            {isUploading ? "Uploading..." : "Upload Book"}
+            <span className="hidden sm:inline">{isUploading ? "Uploading..." : "Upload Book"}</span>
             <input type="file" accept=".epub,.pdf,.mobi,.azw3,.fb2,.cbz,.txt" onChange={handleGlobalUpload} className="hidden" />
           </label>
           

@@ -1267,7 +1267,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             </div>
 
             {/* Right: Controls */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar shrink-0 max-w-[55vw] sm:max-w-none pr-2">
               {/* Scroll Mode Toggle */}
               <button onClick={() => setScrollMode(scrollMode === "horizontal" ? "vertical" : "horizontal")} className="p-1.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center" style={scrollMode === "vertical" ? btnActiveStyle : btnStyle} title="Switch between Page Flip and Vertical Scroll">
                 {scrollMode === "horizontal" ? <MoveHorizontal className="w-4 h-4" /> : <MoveVertical className="w-4 h-4" />}
@@ -1481,7 +1481,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
             {/* TOC Drawer */}
             {showToc && toc.length > 0 && (
-              <div className="w-72 sm:w-80 p-4 space-y-2 text-xs shrink-0 overflow-y-auto z-30 shadow-xl no-scrollbar hide-scrollbar" style={{ background: T.tocBg, borderRight: `1px solid ${T.tocBorder}`, color: T.panelText }}>
+              <div className="absolute inset-y-0 left-0 sm:relative w-full sm:w-80 p-4 space-y-2 text-xs shrink-0 overflow-y-auto z-[60] shadow-xl no-scrollbar hide-scrollbar" style={{ background: T.tocBg, borderRight: `1px solid ${T.tocBorder}`, color: T.panelText }}>
                 <div className="flex items-center justify-between pb-2 mb-2" style={{ borderBottom: `1px solid ${T.tocBorder}` }}>
                   <h4 className="font-bold text-sm">Table of Contents</h4>
                   <button onClick={() => setShowToc(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
@@ -1499,7 +1499,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
             {/* Dictionary Sidebar Drawer */}
             {showDictionaryDrawer && (
-              <div className="w-80 sm:w-96 p-4 space-y-3 text-xs shrink-0 overflow-y-auto z-30 shadow-2xl no-scrollbar hide-scrollbar" style={{ background: T.panelBg, borderRight: `1px solid ${T.panelBorder}`, color: T.panelText }}>
+              <div className="absolute inset-y-0 left-0 sm:relative w-full sm:w-96 p-4 space-y-3 text-xs shrink-0 overflow-y-auto z-[60] shadow-2xl no-scrollbar hide-scrollbar" style={{ background: T.panelBg, borderRight: `1px solid ${T.panelBorder}`, color: T.panelText }}>
                 <div className="flex items-center justify-between pb-2.5" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
                   <span className="font-bold text-sm flex items-center gap-1.5" style={{ color: T.panelAccent }}>
                     <BookOpen className="w-4 h-4" />Dictionary & Lexicon
