@@ -335,6 +335,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
   // Progress for vertical scroll (0–100)
   const [verticalProgress, setVerticalProgress] = useState(0);
+  const [chapterProgress, setChapterProgress] = useState(0);
 
   // Highlighter
   const [activeHighlightColor, setActiveHighlightColor] = useState(HIGHLIGHT_COLORS[0]);
@@ -991,7 +992,19 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         <div className="flex flex-col h-screen w-screen" style={{ background: T.bg, color: T.text }}>
 
           {/* ── TOP TOOLBAR ─────────────────────────────────────────────── */}
-          <div className="h-14 px-3 sm:px-5 flex items-center justify-between gap-2 text-xs shrink-0 z-30" style={{ background: T.toolbarBg, borderBottom: `1px solid ${T.toolbarBorder}`, color: T.toolbarText }}>
+          <div className="relative h-14 px-3 sm:px-5 flex items-center justify-between gap-2 text-xs shrink-0 z-30" style={{ background: T.toolbarBg, borderBottom: `1px solid ${T.toolbarBorder}`, color: T.toolbarText }}>
+            
+            {/* ── CHAPTER PROGRESS BAR (Top Edge) ── */}
+            <div className="absolute bottom-0 left-0 right-0 h-1 z-40 overflow-hidden" style={{ background: T.toolbarBorder }}>
+              <div 
+                className="h-full transition-all duration-150 ease-out"
+                style={{ 
+                  width: `${chapterProgress}%`, 
+                  background: T.panelAccent,
+                  boxShadow: `0 0 10px ${T.panelAccent}`
+                }} 
+              />
+            </div>
             {/* Left: Close + Title */}
             <div className="flex items-center gap-2">
               <button onClick={() => setIsReading(false)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-colors" style={btnStyle} title="Exit Reader">
