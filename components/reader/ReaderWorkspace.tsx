@@ -335,7 +335,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
   // Progress for vertical scroll (0–100)
   const [verticalProgress, setVerticalProgress] = useState(0);
-  const [chapterProgress, setChapterProgress] = useState(0);
+  const chapterProgressRef = useRef<HTMLDivElement>(null);
 
   // Highlighter
   const [activeHighlightColor, setActiveHighlightColor] = useState(HIGHLIGHT_COLORS[0]);
@@ -382,7 +382,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
       setVerticalProgress(pct);
 
       if (scrollMode === "horizontal") {
-        setChapterProgress(max <= 0 ? 100 : Math.min(100, Math.max(0, (scrollTop / max) * 100)));
+        if (chapterProgressRef.current) chapterProgressRef.current.style.width = (max <= 0 ? 100 : Math.min(100, Math.max(0, (scrollTop / max) * 100))) + "%";
       } else {
         // Vertical mode: calculate progress based on the chapter in view
         let found = false;
@@ -400,7 +400,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             if (relTop <= 0 && relBottom >= 0) {
               const maxScroll = Math.max(1, rect.height - containerRect.height);
               const progress = Math.min(100, Math.max(0, (-relTop / maxScroll) * 100));
-              setChapterProgress(progress);
+              if (chapterProgressRef.current) chapterProgressRef.current.style.width = progress + "%";
               
               if (currentChapterIndex !== i && -relTop > 50) {
                  setCurrentChapterIndex(i);
@@ -408,7 +408,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
               found = true;
               break;
             } else if (relTop > 0) {
-              if (!found) setChapterProgress(0);
+              if (!found && chapterProgressRef.current) chapterProgressRef.current.style.width = "0%";
               found = true;
               break;
             }
@@ -1249,9 +1249,10 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
           <div className="w-full h-1.5 z-40 relative" style={{ background: T.toolbarBg }}>
             <div className="absolute inset-0 opacity-10" style={{ background: T.toolbarText }} />
             <div 
-              className="absolute left-0 top-0 h-full transition-all duration-150 ease-out rounded-r-full"
+              ref={chapterProgressRef}
+              className="absolute left-0 top-0 h-full rounded-r-full will-change-[width]"
               style={{ 
-                width: `${chapterProgress}%`, 
+                width: "0%", 
                 background: T.panelAccent,
                 boxShadow: `0 0 12px ${T.panelAccent}, 0 0 4px ${T.panelAccent}`
               }} 
