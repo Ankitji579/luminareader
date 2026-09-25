@@ -41,21 +41,33 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>?/gm, "");
 }
 
-// Fetch Hindi translation via MyMemory free API (no key needed)
-async function fetchHindiTranslation(word: string): Promise<string | undefined> {
+// Fetch Hindi translation using Google Translate API (fast, free tier endpoint)
+export async function fetchHindiTranslation(text: string): Promise<string | undefined> {
+  // Check cache first
+  const cacheKey = `lumina_tr_${text.toLowerCase()}`;
+  if (typeof window !== 'undefined') {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return cached;
+  }
+
   try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|hi`;
-    const res = await fetchWithTimeout(url, 3500);
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=hi&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetchWithTimeout(url, 4000);
     if (res.ok) {
       const data = await res.json();
-      const translated: string = data?.responseData?.translatedText || "";
-      // MyMemory returns the original word if it can't translate
-      if (translated && translated.toLowerCase() !== word.toLowerCase() && translated.trim() !== "") {
-        return translated;
+      if (data && data[0]) {
+        // Concatenate all translation segments
+        const translated = data[0].map((item: any) => item[0]).join('');
+        if (translated && translated.trim()) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(cacheKey, translated);
+          }
+          return translated;
+        }
       }
     }
   } catch {
-    // Translation is optional — fail silently
+    // Fail silently
   }
   return undefined;
 }
@@ -70,6 +82,17 @@ export async function lookupWordComprehensive(rawWord: string): Promise<Dictiona
       meanings: [{ partOfSpeech: "definition", definition: "Please select or enter a valid word." }],
       source: "local",
     };
+  }
+
+  // Check LocalStorage cache first for instant lookup
+  const cacheKey = `lumina_dict_${cleanWord}`;
+  if (typeof window !== 'undefined') {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached) as DictionaryResult;
+      } catch (e) {}
+    }
   }
 
   let result: DictionaryResult | null = null;
@@ -335,6 +358,11 @@ export async function lookupWordComprehensive(rawWord: string): Promise<Dictiona
       ],
       source: "Lumina Lexicon",
     };
+  }
+
+  // Cache the result for instant future lookups
+  if (typeof window !== 'undefined' && result) {
+    localStorage.setItem(cacheKey, JSON.stringify(result));
   }
 
   // Hindi translation is now fetched on-demand (user button click), not here

@@ -938,7 +938,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
               {/* Dictionary Launcher */}
               <button onClick={() => setShowDictionaryDrawer(!showDictionaryDrawer)} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5" style={showDictionaryDrawer ? btnActiveStyle : btnStyle} title="Open Dictionary">
-                <Search className="w-3.5 h-3.5" />
+                <Search className="w-3.5 h-3.5" /><span className="hidden sm:inline">Dictionary</span>
               </button>
 
               {/* Bookmark */}
@@ -1080,7 +1080,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
               <div className="relative">
                 <button onClick={() => setShowThemePicker(!showThemePicker)} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors" style={showThemePicker ? btnActiveStyle : btnStyle} title="Switch Theme">
                   <Palette className="w-3.5 h-3.5" />
-                  <span className="hidden md:inline">{T.emoji}</span>
+                  <span className="hidden md:inline">{T.emoji} {T.name}</span>
                 </button>
                 {showThemePicker && (
                   <div className="absolute right-0 top-11 z-50 w-72 p-3 rounded-2xl shadow-2xl space-y-2" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
