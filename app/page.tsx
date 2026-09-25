@@ -1,6 +1,6 @@
 import ReaderWorkspace from "@/components/reader/ReaderWorkspace";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { Zap, Shield, Sparkles } from "lucide-react";
+import { Zap, Shield, Sparkles, Moon } from "lucide-react";
 
 export default function HomePage() {
   return (
@@ -40,7 +40,8 @@ export default function HomePage() {
             {[
               { icon: Zap, title: "Instant Rendering", desc: "Native-like performance in your browser." },
               { icon: Shield, title: "100% Private", desc: "Files never leave your local device." },
-              { icon: Sparkles, title: "Beautiful Typography", desc: "116+ fonts and complete layout control." }
+              { icon: Sparkles, title: "Beautiful Typography", desc: "116+ fonts and complete layout control." },
+              { icon: Moon, title: "Eye-Care Themes", desc: "OLED, Sepia, and automatic dark mode syncing." }
             ].map((feature, i) => (
               <div key={i} className="flex flex-col gap-2 p-5 rounded-3xl bg-white/40 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 backdrop-blur-xl hover:bg-white/60 dark:hover:bg-white/10 transition-colors text-left">
                 <feature.icon className="w-5 h-5 text-indigo-500" />
