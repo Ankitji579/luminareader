@@ -84,11 +84,21 @@ function PdfPage({ pdf, pageNumber, zoomScale }: { pdf: any; pageNumber: number;
         const context = canvas.getContext('2d');
         if (!context) return;
         
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+        // High-DPI (Retina) Display Support for crystal clear text and images
+        const outputScale = window.devicePixelRatio || 1;
+        
+        canvas.width = Math.floor(viewport.width * outputScale);
+        canvas.height = Math.floor(viewport.height * outputScale);
+        canvas.style.width = Math.floor(viewport.width) + "px";
+        canvas.style.height = Math.floor(viewport.height) + "px";
+
+        const transform = outputScale !== 1 
+          ? [outputScale, 0, 0, outputScale, 0, 0] 
+          : null;
 
         const renderContext = {
           canvasContext: context,
+          transform: transform,
           viewport: viewport,
         };
         await page.render(renderContext).promise;
@@ -117,8 +127,8 @@ function PdfPage({ pdf, pageNumber, zoomScale }: { pdf: any; pageNumber: number;
   }, [zoomScale]);
 
   return (
-    <div className="bg-white shadow-xl shadow-black/10 overflow-hidden" style={{ minHeight: "800px", minWidth: "600px", maxWidth: "100%" }}>
-      <canvas ref={canvasRef} className="block w-full h-auto" />
+    <div className="bg-white shadow-xl shadow-black/10 overflow-hidden flex items-center justify-center" style={{ minHeight: "800px", minWidth: "600px", maxWidth: "100%" }}>
+      <canvas ref={canvasRef} className="block max-w-full" />
     </div>
   );
 }
