@@ -1194,6 +1194,10 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
       className={`w-full ${isReading ? "fixed inset-0 z-[100] p-0 overflow-hidden select-text" : "max-w-7xl mx-auto my-4 px-2 sm:px-4"}`}
       style={isReading ? { background: T.bg, color: T.text } : undefined}
     >
+      {(isReading || pdfModePrompt) && (
+        <style>{'#lumina-global-header { display: none !important; } body { overflow: hidden; }'}</style>
+      )}
+
       {loading && (
         <div className="p-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 max-w-xl mx-auto my-12">
           <div className="w-14 h-14 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
