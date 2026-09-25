@@ -375,6 +375,16 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     if (scrollMode === "horizontal") setVerticalProgress(0);
   }, [scrollMode]);
 
+  // ─── DICTIONARY BUBBLE HELPERS ─────────────────────────────────────────────
+
+  const closeDictionaryBubble = useCallback(() => {
+    setSelectedWord(null);
+    if (typeof CSS !== "undefined" && "highlights" in CSS) {
+      (CSS as any).highlights.delete("dict-selection");
+    }
+    window.getSelection()?.removeAllRanges();
+  }, []);
+
   // ─── DICTIONARY — BUBBLE (selection-triggered) ─────────────────────────────
 
   const executeBubbleLookup = useCallback(async (word: string, above: boolean) => {
@@ -385,14 +395,25 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     setDictionaryData(null);
     setDictionaryLoading(true);
 
-    // Restore the native browser text highlight after React re-render collapses it
-    requestAnimationFrame(() => {
+    // Provide a bulletproof visual highlight using CSS Highlight API if available,
+    // otherwise fallback to native selection restoration after React re-renders.
+    setTimeout(() => {
       const range = savedRangeRef.current;
-      if (range) {
-        const sel = window.getSelection();
-        if (sel) { sel.removeAllRanges(); sel.addRange(range); }
+      if (!range) return;
+
+      if (typeof CSS !== "undefined" && "highlights" in CSS) {
+        try {
+          const highlight = new (window as any).Highlight(range);
+          (CSS as any).highlights.set("dict-selection", highlight);
+        } catch (e) {}
       }
-    });
+
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }, 10);
 
     try {
       const result = await lookupWordComprehensive(clean);
@@ -484,7 +505,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
       } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
         e.preventDefault(); triggerPageTurn("prev");
       } else if (e.key === "Escape") {
-        if (selectedWord) { setSelectedWord(null); return; }
+        if (selectedWord) { closeDictionaryBubble(); return; }
         if (showThemePicker) { setShowThemePicker(false); return; }
         if (showFontMenu) { setShowFontMenu(false); return; }
         setIsReading(false);
@@ -492,7 +513,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isReading, triggerPageTurn, selectedWord, showThemePicker, showFontMenu]);
+  }, [isReading, triggerPageTurn, selectedWord, showThemePicker, showFontMenu, closeDictionaryBubble]);
 
   // Close bubble on outside click
   useEffect(() => {
@@ -500,12 +521,12 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     const handler = (e: MouseEvent) => {
       const bubble = document.getElementById("dict-bubble");
       if (bubble && !bubble.contains(e.target as Node)) {
-        setSelectedWord(null);
+        closeDictionaryBubble();
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [selectedWord]);
+  }, [selectedWord, closeDictionaryBubble]);
 
   // ─── FILE PROCESSING ───────────────────────────────────────────────────────
 
@@ -1039,11 +1060,14 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                       <Volume2 className={`w-3.5 h-3.5 ${isPlayingAudio ? "animate-pulse" : ""}`} />
                     </button>
                     {/* HIGHLIGHT BUTTON */}
-                    <button onClick={applyHighlight} className="p-1 rounded transition-transform hover:scale-105 ml-1 flex items-center gap-1 px-1.5 text-[10px] font-bold" style={{ background: activeHighlightColor.bg, color: T.text, border: `1px solid ${activeHighlightColor.border}` }} title="Highlight Text">
+                    <button 
+                      onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onClick={applyHighlight} 
+                      className="p-1 rounded transition-transform hover:scale-105 ml-1 flex items-center gap-1 px-1.5 text-[10px] font-bold" style={{ background: activeHighlightColor.bg, color: T.text, border: `1px solid ${activeHighlightColor.border}` }} title="Highlight Text">
                       <Highlighter className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Highlight</span>
                     </button>
                   </div>
-                  <button onClick={() => setSelectedWord(null)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
+                  <button onClick={closeDictionaryBubble} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
                 </div>
 
                 {dictionaryLoading ? (
@@ -1269,7 +1293,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             </div>
           </div>
 
-          {/* Keyframes */}
+          {/* Keyframes and Custom Highlight styles */}
           <style>{`
             @keyframes shimmerSweep {
               0%   { transform: translateX(-120%); }
@@ -1287,6 +1311,10 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             }
             mark[data-lumina-highlight] { cursor: pointer; }
             mark[data-lumina-highlight]:hover { filter: brightness(1.1); }
+            ::highlight(dict-selection) {
+              background-color: ${T.panelAccent}50;
+              color: ${T.text};
+            }
           `}</style>
         </div>
       ) : null}
