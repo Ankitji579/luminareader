@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { 
   Upload, BookOpen, Sun, Moon, Book, ZoomIn, ZoomOut, 
-  List, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2 
+  List, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2, Maximize, Minimize 
 } from "lucide-react";
-import JSZip from "jszip";
+import ePub, { Book as EpubBook, Rendition, NavItem } from "epubjs";
 
 interface ReaderWorkspaceProps {
   initialFormat?: string;
@@ -15,21 +15,31 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [fileType, setFileType] = useState<string>("");
-  const [chapters, setChapters] = useState<{ title: string; content: string }[]>([]);
-  const [currentChapterIndex, setCurrentChapterIndex] = useState<number>(0);
   const [isReading, setIsReading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
+  // EpubJS states
+  const [epubBook, setEpubBook] = useState<EpubBook | null>(null);
+  const [rendition, setRendition] = useState<Rendition | null>(null);
+  const [toc, setToc] = useState<NavItem[]>([]);
+  const [currentLocation, setCurrentLocation] = useState<string>("");
+  const [progress, setProgress] = useState(0);
+
+  // Text Fallback states
+  const [textChapters, setTextChapters] = useState<{ title: string; content: string }[]>([]);
+  const [currentTextChapterIndex, setCurrentTextChapterIndex] = useState(0);
+
   // Customization State
   const [fontSize, setFontSize] = useState<number>(18);
   const [theme, setTheme] = useState<"light" | "sepia" | "dark">("light");
   const [fontFamily, setFontFamily] = useState<"serif" | "sans" | "mono">("serif");
   const [showToc, setShowToc] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  const viewerRef = useRef<HTMLDivElement>(null);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];
     if (uploadedFile) {
       processFile(uploadedFile);
@@ -46,13 +56,36 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
 
   const processFile = async (f: File) => {
     setLoading(true);
+    setErrorMessage(null);
     setFile(f);
     setFileName(f.name);
     const ext = f.name.split('.').pop()?.toLowerCase() || '';
     setFileType(ext);
 
+    // Clean previous rendition if exists
+    if (rendition) {
+      rendition.destroy();
+      setRendition(null);
+    }
+    if (epubBook) {
+      epubBook.destroy();
+      setEpubBook(null);
+    }
+
     try {
-      if (ext === 'txt') {
+      if (ext === 'epub') {
+        const buffer = await f.arrayBuffer();
+        const book = ePub(buffer);
+        setEpubBook(book);
+
+        await book.ready;
+        const navigation = await book.loaded.navigation;
+        setToc(navigation.toc || []);
+
+        setIsReading(true);
+        setLoading(false);
+      } else {
+        // Fallback text parser
         const text = await f.text();
         const paragraphs = text.split(/\n\s*\n/);
         const tempChapters = [];
@@ -67,123 +100,126 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
             currentChunk = "";
           }
         }
-        setChapters(tempChapters.length > 0 ? tempChapters : [{ title: "Document", content: text }]);
-        setCurrentChapterIndex(0);
+        setTextChapters(tempChapters.length > 0 ? tempChapters : [{ title: "Document", content: text.slice(0, 50000) }]);
+        setCurrentTextChapterIndex(0);
         setIsReading(true);
-      } else if (ext === 'epub') {
-        const zip = await JSZip.loadAsync(f);
-        const imageBlobs: Record<string, string> = {};
-
-        // 1. Extract all images and convert to Blob URLs
-        for (const filename of Object.keys(zip.files)) {
-          if (/\.(jpe?g|png|gif|svg|webp)$/i.test(filename)) {
-            const blob = await zip.files[filename].async('blob');
-            const blobUrl = URL.createObjectURL(blob);
-            const shortName = filename.split('/').pop() || filename;
-            imageBlobs[filename] = blobUrl;
-            imageBlobs[shortName] = blobUrl;
-          }
-        }
-
-        // 2. Extract HTML/XHTML chapters
-        const rawChapters: { name: string; text: string }[] = [];
-        for (const filename of Object.keys(zip.files)) {
-          if (filename.endsWith('.html') || filename.endsWith('.xhtml') || filename.endsWith('.htm')) {
-            const content = await zip.files[filename].async('string');
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(content, 'text/html');
-
-            // Replace img src with blob URLs
-            const imgs = doc.querySelectorAll('img, image');
-            imgs.forEach((img) => {
-              const src = img.getAttribute('src') || img.getAttribute('xlink:href') || '';
-              const cleanSrc = src.split('/').pop() || '';
-              if (imageBlobs[cleanSrc]) {
-                img.setAttribute('src', imageBlobs[cleanSrc]);
-              } else if (imageBlobs[src]) {
-                img.setAttribute('src', imageBlobs[src]);
-              }
-            });
-
-            // Extract body text/content
-            const bodyHtml = doc.body ? doc.body.innerHTML : content;
-            const textContentOnly = doc.body ? (doc.body.textContent || '').trim() : '';
-
-            // Ignore empty pages or tiny nav wrappers
-            if (bodyHtml.length > 50 || textContentOnly.length > 20) {
-              const chapterTitle = filename.split('/').pop()?.replace(/\.[^/.]+$/, "") || `Section ${rawChapters.length + 1}`;
-              rawChapters.push({
-                name: chapterTitle.replace(/[-_]/g, ' '),
-                text: bodyHtml
-              });
-            }
-          }
-        }
-
-        if (rawChapters.length > 0) {
-          const formattedChapters = rawChapters.map((ch, idx) => ({
-            title: ch.name.length < 30 ? `Chapter ${idx + 1}: ${ch.name}` : `Chapter ${idx + 1}`,
-            content: ch.text
-          }));
-
-          setChapters(formattedChapters);
-          // Auto jump past cover if chapter 0 is just an image tag
-          if (formattedChapters.length > 1 && formattedChapters[0].content.includes('<img') && formattedChapters[0].content.length < 500) {
-            setCurrentChapterIndex(1);
-          } else {
-            setCurrentChapterIndex(0);
-          }
-          setIsReading(true);
-        } else {
-          const text = await f.text();
-          setChapters([{ title: f.name, content: text.slice(0, 50000) }]);
-          setCurrentChapterIndex(0);
-          setIsReading(true);
-        }
-      } else {
-        // Fallback viewer for PDF / MOBI / AZW3 / FB2 / CBZ text preview
-        const text = await f.text();
-        const cleanText = text.replace(/[^\x20-\x7E\n\r\t]/g, ' ').slice(0, 50000);
-        setChapters([{ title: `${f.name} (Preview)`, content: cleanText.replace(/\n/g, '<br/>') }]);
-        setCurrentChapterIndex(0);
-        setIsReading(true);
+        setLoading(false);
       }
     } catch (err) {
-      console.error("File parsing error:", err);
-      setChapters([{ title: "Reading Notice", content: "<p>Processing completed. Displaying document reader mode.</p>" }]);
-      setCurrentChapterIndex(0);
+      console.error("Reader loading error:", err);
+      setErrorMessage("Could not parse file cleanly. Opening text fallback mode.");
+      const text = await f.text();
+      setTextChapters([{ title: f.name, content: text.replace(/\n/g, '<br/>').slice(0, 50000) }]);
+      setCurrentTextChapterIndex(0);
       setIsReading(true);
-    } finally {
       setLoading(false);
     }
   };
 
-  const loadDemoBook = () => {
-    const demoContent1 = `<h3>Chapter 1: A Scandal in Bohemia</h3>
-<p>To Sherlock Holmes she is always THE woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex. It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind.</p>
-<p>He was, I take it, the most perfect reasoning and observing machine that the world has seen, but as a lover he would have placed himself in a false position. He never spoke of the softer passions, save with a gibe and a sneer. They were admirable things for the observer—excellent for drawing the veil from men's motives and actions.</p>`;
+  // Render EpubJS rendition when viewerRef is ready
+  useEffect(() => {
+    if (isReading && fileType === 'epub' && epubBook && viewerRef.current) {
+      viewerRef.current.innerHTML = "";
 
-    const demoContent2 = `<h3>Chapter 2: The Red-Headed League</h3>
-<p>I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last year and found him in deep conversation with a very stout, florid-faced, elderly gentleman with fiery red hair.</p>
-<p>"You could not have come at a better time, my dear Watson," he said cordially.</p>
-<p>"I was afraid that you were engaged."</p>
-<p>"I am so. Very much so."</p>`;
+      const rend = epubBook.renderTo(viewerRef.current, {
+        width: "100%",
+        height: "100%",
+        spread: "none",
+        flow: "paginated"
+      });
 
-    setFileName("Sherlock_Holmes_Demo.epub");
-    setFileType("epub");
-    setChapters([
-      { title: "Chapter 1: A Scandal in Bohemia", content: demoContent1 },
-      { title: "Chapter 2: The Red-Headed League", content: demoContent2 }
-    ]);
-    setCurrentChapterIndex(0);
-    setIsReading(true);
+      rend.display();
+
+      rend.on("relocated", (location: any) => {
+        if (location && location.start) {
+          setCurrentLocation(location.start.href);
+          if (epubBook.locations && epubBook.locations.length()) {
+            const prog = epubBook.locations.percentageFromCfi(location.start.cfi);
+            setProgress(Math.round(prog * 100));
+          }
+        }
+      });
+
+      // Generate locations for progress calculation
+      epubBook.ready.then(() => {
+        epubBook.locations.generate(1000).then(() => {
+          if (rend.location && rend.location.start) {
+            const prog = epubBook.locations.percentageFromCfi(rend.location.start.cfi);
+            setProgress(Math.round(prog * 100));
+          }
+        });
+      });
+
+      setRendition(rend);
+    }
+  }, [isReading, fileType, epubBook]);
+
+  // Apply theme & font size to EpubJS rendition
+  useEffect(() => {
+    if (rendition) {
+      const themeCss = 
+        theme === 'dark' 
+          ? { body: { background: '#020617 !important', color: '#f8fafc !important' } }
+          : theme === 'sepia'
+          ? { body: { background: '#fbf0d9 !important', color: '#433422 !important' } }
+          : { body: { background: '#ffffff !important', color: '#0f172a !important' } };
+
+      rendition.themes.register('custom', themeCss);
+      rendition.themes.select('custom');
+      rendition.themes.fontSize(`${fontSize}px`);
+    }
+  }, [theme, fontSize, rendition]);
+
+  const prevPage = () => {
+    if (fileType === 'epub' && rendition) {
+      rendition.prev();
+    } else {
+      setCurrentTextChapterIndex(Math.max(0, currentTextChapterIndex - 1));
+    }
   };
 
-  useEffect(() => {
-    if (chapters.length > 0) {
-      setProgress(Math.round(((currentChapterIndex + 1) / chapters.length) * 100));
+  const nextPage = () => {
+    if (fileType === 'epub' && rendition) {
+      rendition.next();
+    } else {
+      setCurrentTextChapterIndex(Math.min(textChapters.length - 1, currentTextChapterIndex + 1));
     }
-  }, [currentChapterIndex, chapters]);
+  };
+
+  const loadDemoBook = async () => {
+    setLoading(true);
+    setFileName("Sherlock_Holmes_Classic_Demo.txt");
+    setFileType("txt");
+    const demoContent1 = `Chapter 1: A Scandal in Bohemia
+
+To Sherlock Holmes she is always THE woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex. It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind. He was, I take it, the most perfect reasoning and observing machine that the world has seen, but as a lover he would have placed himself in a false position.
+
+He never spoke of the softer passions, save with a gibe and a sneer. They were admirable things for the observer—excellent for drawing the veil from men's motives and actions. But for the trained reasoner to admit such intrusions into his own delicate and finely adjusted temperament was to introduce a distracting factor which might throw a doubt upon all his mental results.
+
+Grit in a sensitive instrument, or a crack in one of his own high-power lenses, would not be more disturbing than a strong emotion in a nature such as his. And yet there was but one woman to him, and that woman was the late Irene Adler, of dubious and questionable memory.`;
+
+    const demoContent2 = `Chapter 2: The Red-Headed League
+
+I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last year and found him in deep conversation with a very stout, florid-faced, elderly gentleman with fiery red hair. With an apology for my intrusion, I was about to withdraw when Holmes pulled me abruptly into the room and closed the door behind me.
+
+"You could not have come at a better time, my dear Watson," he said cordially.
+
+"I was afraid that you were engaged."
+
+"I am so. Very much so."
+
+"Then I can wait in the adjoining room."
+
+"Not at all. This gentleman, Mr. Wilson, has been my partner and helper in many of my most successful cases, and I have no doubt that he will be of the same use to me in yours."`;
+
+    setTextChapters([
+      { title: "Chapter 1: A Scandal in Bohemia", content: demoContent1.replace(/\n/g, '<br/>') },
+      { title: "Chapter 2: The Red-Headed League", content: demoContent2.replace(/\n/g, '<br/>') }
+    ]);
+    setCurrentTextChapterIndex(0);
+    setIsReading(true);
+    setLoading(false);
+  };
 
   const getThemeClass = () => {
     switch (theme) {
@@ -208,19 +244,21 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto my-6 px-4">
+    <div className={`w-full ${isFullScreen ? 'fixed inset-0 z-50 bg-slate-950 p-0' : 'max-w-7xl mx-auto my-4 px-2 sm:px-4'}`}>
       {loading && (
-        <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="font-semibold text-slate-700 dark:text-slate-300">Parsing E-Book chapters & extracting images...</p>
+        <div className="p-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 max-w-xl mx-auto my-12">
+          <div className="w-14 h-14 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Opening E-Book...</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Loading chapters, typography & table of contents into full-screen reader workspace.</p>
         </div>
       )}
 
       {!isReading && !loading ? (
+        /* Upload Dropzone */
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
-          className="relative rounded-3xl border-2 border-dashed border-indigo-300 dark:border-indigo-800 bg-gradient-to-b from-indigo-50/50 via-white to-slate-50 dark:from-indigo-950/20 dark:via-slate-900 dark:to-slate-950 p-8 sm:p-12 text-center transition-all hover:border-indigo-500 shadow-xl"
+          className="relative rounded-3xl border-2 border-dashed border-indigo-300 dark:border-indigo-800 bg-gradient-to-b from-indigo-50/50 via-white to-slate-50 dark:from-indigo-950/20 dark:via-slate-900 dark:to-slate-950 p-8 sm:p-16 text-center transition-all hover:border-indigo-500 shadow-xl"
         >
           <div className="max-w-2xl mx-auto space-y-6">
             <div className="w-20 h-20 mx-auto rounded-3xl bg-indigo-600 text-white flex items-center justify-center shadow-xl shadow-indigo-500/20">
@@ -274,17 +312,22 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
           </div>
         </div>
       ) : isReading ? (
-        <div className={`rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 transition-colors ${getThemeClass()}`}>
-          <div className="sticky top-16 z-40 px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-opacity-95 backdrop-blur flex items-center justify-between gap-2 text-xs">
+        /* Full Viewport E-Reader Interface */
+        <div className={`rounded-2xl shadow-2xl flex flex-col h-[calc(100vh-100px)] border border-slate-200 dark:border-slate-800 transition-colors ${getThemeClass()}`}>
+          {/* Top Reader Toolbar */}
+          <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs shrink-0">
             <button
-              onClick={() => setIsReading(false)}
+              onClick={() => {
+                setIsReading(false);
+                if (rendition) rendition.destroy();
+              }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Close Book</span>
+              <span className="hidden sm:inline">Close Reader</span>
             </button>
 
-            <div className="flex items-center gap-1 truncate max-w-[200px] sm:max-w-xs font-semibold text-sm">
+            <div className="flex items-center gap-2 truncate max-w-xs sm:max-w-md font-semibold text-sm">
               <Book className="w-4 h-4 text-indigo-500 shrink-0" />
               <span className="truncate">{fileName}</span>
             </div>
@@ -309,7 +352,7 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
               <span className="font-semibold text-xs min-w-[24px] text-center">{fontSize}px</span>
 
               <button
-                onClick={() => setFontSize(Math.min(32, fontSize + 2))}
+                onClick={() => setFontSize(Math.min(36, fontSize + 2))}
                 className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
                 title="Increase Font Size"
               >
@@ -326,79 +369,90 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
                 {theme === "dark" && <Moon className="w-4 h-4 text-indigo-400" />}
               </button>
 
+              {fileType === 'epub' && (
+                <button
+                  onClick={() => setShowToc(!showToc)}
+                  className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
+                  title="Table of Contents"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              )}
+
               <button
-                onClick={() => setShowToc(!showToc)}
-                className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
-                title="Table of Contents"
+                onClick={() => setIsFullScreen(!isFullScreen)}
+                className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 hidden sm:block"
+                title="Toggle Full Screen"
               >
-                <List className="w-4 h-4" />
+                {isFullScreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
               </button>
             </div>
           </div>
 
-          <div className="relative flex min-h-[600px]">
-            {showToc && (
-              <div className="w-64 border-r border-slate-200 dark:border-slate-800 p-4 space-y-2 bg-slate-50 dark:bg-slate-900 text-xs shrink-0 overflow-y-auto max-h-[600px]">
-                <h4 className="font-bold text-sm mb-3">Table of Contents ({chapters.length} Chapters)</h4>
-                {chapters.map((chap, idx) => (
+          {/* Main Reading Canvas Container */}
+          <div className="relative flex-1 flex overflow-hidden">
+            {/* Table of Contents Drawer */}
+            {showToc && toc.length > 0 && (
+              <div className="w-72 border-r border-slate-200 dark:border-slate-800 p-4 space-y-2 bg-slate-50 dark:bg-slate-900 text-xs shrink-0 overflow-y-auto">
+                <h4 className="font-bold text-sm mb-3">Table of Contents</h4>
+                {toc.map((item, idx) => (
                   <button
                     key={idx}
                     onClick={() => {
-                      setCurrentChapterIndex(idx);
-                      setShowToc(false);
+                      if (rendition && item.href) {
+                        rendition.display(item.href);
+                        setShowToc(false);
+                      }
                     }}
-                    className={`w-full text-left p-2 rounded-lg transition-colors truncate ${
-                      currentChapterIndex === idx
-                        ? "bg-indigo-600 text-white font-semibold"
-                        : "hover:bg-slate-200 dark:hover:bg-slate-800"
-                    }`}
+                    className="w-full text-left p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors truncate font-medium"
                   >
-                    {chap.title}
+                    {item.label}
                   </button>
                 ))}
               </div>
             )}
 
-            <div ref={containerRef} className="flex-1 p-6 sm:p-12 max-w-4xl mx-auto overflow-y-auto max-h-[700px]">
-              {chapters.length > 0 && (
-                <div className="space-y-6">
-                  <h3 className="text-xl font-bold border-b pb-3 mb-6 opacity-80">
-                    {chapters[currentChapterIndex]?.title}
+            {/* Reading Viewport */}
+            <div className="flex-1 w-full h-full p-4 sm:p-8 flex items-center justify-center overflow-hidden">
+              {fileType === 'epub' ? (
+                <div ref={viewerRef} className="w-full h-full" />
+              ) : (
+                <div className="w-full h-full max-w-4xl mx-auto overflow-y-auto p-4 sm:p-8 space-y-6">
+                  <h3 className="text-xl font-bold border-b pb-3 opacity-90">
+                    {textChapters[currentTextChapterIndex]?.title}
                   </h3>
-                  
                   <div
-                    className={`leading-relaxed space-y-4 reader-content ${getFontFamilyClass()}`}
+                    className={`leading-relaxed space-y-4 ${getFontFamilyClass()}`}
                     style={{ fontSize: `${fontSize}px` }}
-                    dangerouslySetInnerHTML={{ __html: chapters[currentChapterIndex]?.content || "" }}
+                    dangerouslySetInnerHTML={{ __html: textChapters[currentTextChapterIndex]?.content || "" }}
                   />
                 </div>
               )}
             </div>
           </div>
 
-          <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs font-semibold bg-opacity-95">
+          {/* Bottom Reader Navigation Controls */}
+          <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs font-semibold shrink-0">
             <button
-              disabled={currentChapterIndex === 0}
-              onClick={() => setCurrentChapterIndex(Math.max(0, currentChapterIndex - 1))}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 text-white disabled:opacity-30 hover:bg-indigo-700 transition-colors"
+              onClick={prevPage}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-md"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Previous Chapter</span>
+              <span>Previous Page</span>
             </button>
 
-            <div className="flex items-center gap-2">
-              <span>Progress: {progress}%</span>
-              <div className="w-24 h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                <div className="h-full bg-indigo-600 transition-all duration-300" style={{ width: `${progress}%` }} />
+            <div className="flex items-center gap-3">
+              <span className="text-slate-600 dark:text-slate-400">Progress: {progress > 0 ? `${progress}%` : "Reading"}</span>
+              <div className="w-32 h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                <div className="h-full bg-indigo-600 transition-all duration-300" style={{ width: `${Math.max(5, progress)}%` }} />
               </div>
             </div>
 
             <button
-              disabled={currentChapterIndex === chapters.length - 1}
-              onClick={() => setCurrentChapterIndex(Math.min(chapters.length - 1, currentChapterIndex + 1))}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 text-white disabled:opacity-30 hover:bg-indigo-700 transition-colors"
+              onClick={nextPage}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-md"
             >
-              <span>Next Chapter</span>
+              <span>Next Page</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
