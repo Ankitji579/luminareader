@@ -53,15 +53,10 @@ export default function HomePage() {
         </div>
 
         {/* Right Column: Dropzone Widget */}
-        <div className="flex-1 w-full max-w-2xl lg:max-w-none relative animate-fade-in delay-300 z-10">
-          {/* Decorative ambient glow behind the widget */}
-          <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 blur-[100px] rounded-[3rem] -z-10" />
-          
-          <div className="relative w-full rounded-[2.5rem] p-2 bg-white/40 dark:bg-slate-900/40 backdrop-blur-3xl border border-white/50 dark:border-white/10 shadow-2xl shadow-indigo-500/10">
-            <ErrorBoundary>
-              <ReaderWorkspace />
-            </ErrorBoundary>
-          </div>
+        <div className="flex-1 w-full max-w-2xl lg:max-w-none z-10">
+          <ErrorBoundary>
+            <ReaderWorkspace />
+          </ErrorBoundary>
         </div>
 
       </main>

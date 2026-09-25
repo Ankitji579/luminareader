@@ -9,6 +9,7 @@ type PersistentHighlight = {
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import Portal from "@/components/Portal";
 import { useTheme as useNextTheme } from "next-themes";
 
 import localforage from "localforage";
@@ -1217,7 +1218,9 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
       {/* ── UPLOAD DROPZONE ─────────────────────────────────────────────────── */}
       {!isReading && !loading && !pdfModePrompt ? (
-        <div onDragOver={(e) => e.preventDefault()} onDrop={handleDrop} className="relative group overflow-hidden rounded-[2rem] border border-dashed border-indigo-500/30 dark:border-indigo-400/20 bg-indigo-50/50 dark:bg-indigo-950/20 p-10 sm:p-16 text-center transition-all hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 w-full">
+        <div className="relative w-full rounded-[2.5rem] p-2 bg-white/40 dark:bg-slate-900/40 backdrop-blur-3xl border border-white/50 dark:border-white/10 shadow-2xl shadow-indigo-500/10 animate-fade-in delay-300">
+          <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 blur-[100px] rounded-[3rem] -z-10" />
+          <div onDragOver={(e) => e.preventDefault()} onDrop={handleDrop} className="relative group overflow-hidden rounded-[2rem] border border-dashed border-indigo-500/30 dark:border-indigo-400/20 bg-indigo-50/50 dark:bg-indigo-950/20 p-10 sm:p-16 text-center transition-all hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 w-full">
           
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-purple-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
           
@@ -1241,6 +1244,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
               </button>
             </div>
           </div>
+        </div>
         </div>
       ) : null}
 
