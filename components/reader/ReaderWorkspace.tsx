@@ -6,11 +6,22 @@ import {
   List, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2,
   Search, X, Type, ChevronDown, HelpCircle, RotateCcw,
   Volume2, MoveVertical, MoveHorizontal, Compass, Maximize2, Minimize2,
-  ChevronLeft, ChevronRight, Palette, Bookmark, BookmarkCheck, Globe,
+  ChevronLeft, ChevronRight, Palette, Bookmark, BookmarkCheck, Globe, Highlighter,
 } from "lucide-react";
 import { parseEpubArchive, ParsedBook, ParsedChapter, TocItem } from "@/lib/epub-parser";
 import { GOOGLE_FONTS, FontOption } from "@/lib/fonts-data";
 import { lookupWordComprehensive, DictionaryResult } from "@/lib/dictionary-service";
+
+// ─── HIGHLIGHT COLORS ─────────────────────────────────────────────────────────
+// Semi-transparent so they look good on every theme
+const HIGHLIGHT_COLORS = [
+  { id: "yellow",  label: "Sunshine",  bg: "rgba(255, 236, 61, 0.55)",  border: "#f0c419" },
+  { id: "green",   label: "Mint",      bg: "rgba(74, 222, 128, 0.45)",  border: "#22c55e" },
+  { id: "pink",    label: "Rose",      bg: "rgba(249, 115, 148, 0.45)", border: "#f43f5e" },
+  { id: "blue",    label: "Sky",       bg: "rgba(96, 165, 250, 0.45)",  border: "#3b82f6" },
+  { id: "purple",  label: "Lavender",  bg: "rgba(167, 139, 250, 0.45)", border: "#8b5cf6" },
+  { id: "orange",  label: "Peach",     bg: "rgba(251, 146, 60, 0.45)",  border: "#f97316" },
+];
 
 // ─── THEME SYSTEM ──────────────────────────────────────────────────────────────
 
@@ -315,8 +326,14 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   // Progress for vertical scroll (0–100)
   const [verticalProgress, setVerticalProgress] = useState(0);
 
+  // Highlighter
+  const [activeHighlightColor, setActiveHighlightColor] = useState(HIGHLIGHT_COLORS[0]);
+  const [showHighlightPicker, setShowHighlightPicker] = useState(false);
+
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // Save text selection range so we can restore it after state updates
+  const savedRangeRef = useRef<Range | null>(null);
 
   // Short alias for current theme config
   const T = THEMES[theme];
@@ -367,10 +384,18 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     setSelectedWord(clean);
     setDictionaryData(null);
     setDictionaryLoading(true);
+
+    // Restore the native browser text highlight after React re-render collapses it
+    requestAnimationFrame(() => {
+      const range = savedRangeRef.current;
+      if (range) {
+        const sel = window.getSelection();
+        if (sel) { sel.removeAllRanges(); sel.addRange(range); }
+      }
+    });
+
     try {
-      // Only fetch definition, NOT Hindi — user must click button for that
       const result = await lookupWordComprehensive(clean);
-      // Strip hindiTranslation so it's not shown automatically
       result.hindiTranslation = undefined;
       setDictionaryData(result);
     } catch (e) {
@@ -642,14 +667,71 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   // ─── MOUSE SELECTION HANDLER ───────────────────────────────────────────────
 
   const handleTextMouseUp = (e: React.MouseEvent) => {
-    const sel = window.getSelection()?.toString() || "";
+    const selection = window.getSelection();
+    const sel = selection?.toString() || "";
     const word = sel.trim().split(/\s+/)[0]; // Only take FIRST word of selection
     const clean = word.replace(/[^a-zA-Z]/g, "").trim();
     if (clean && clean.length >= 2) {
+      // ── Save the selection range BEFORE React state update collapses it ──
+      if (selection && selection.rangeCount > 0) {
+        savedRangeRef.current = selection.getRangeAt(0).cloneRange();
+      }
       const winH = window.innerHeight;
       const y = e.clientY;
       executeBubbleLookup(clean, y > winH * 0.55);
     }
+  };
+
+  // ─── APPLY HIGHLIGHT ──────────────────────────────────────────────────────
+  // Re-applies the saved range, wraps it in a <mark> span with chosen color
+
+  const applyHighlight = () => {
+    const range = savedRangeRef.current;
+    if (!range) return;
+
+    // Re-apply the saved range to the live selection
+    const sel = window.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+
+    try {
+      // Wrap range contents in a styled mark element
+      const mark = document.createElement("mark");
+      mark.style.backgroundColor = activeHighlightColor.bg;
+      mark.style.borderRadius = "3px";
+      mark.style.padding = "0 2px";
+      mark.style.boxShadow = `0 0 0 1px ${activeHighlightColor.border}40`;
+      mark.style.transition = "background-color 0.2s ease";
+      mark.dataset.luminaHighlight = activeHighlightColor.id;
+
+      // Check if range is within a content div (not toolbar)
+      const container = range.commonAncestorContainer;
+      const isInContent = scrollContainerRef.current?.contains(container);
+      if (!isInContent) return;
+
+      // Avoid nesting marks — extract and re-wrap
+      range.surroundContents(mark);
+    } catch {
+      // If surroundContents fails (e.g. partial element boundary), use insertNode approach
+      try {
+        const fragment = range.extractContents();
+        const mark = document.createElement("mark");
+        mark.style.backgroundColor = activeHighlightColor.bg;
+        mark.style.borderRadius = "3px";
+        mark.style.padding = "0 2px";
+        mark.style.boxShadow = `0 0 0 1px ${activeHighlightColor.border}40`;
+        mark.dataset.luminaHighlight = activeHighlightColor.id;
+        mark.appendChild(fragment);
+        range.insertNode(mark);
+      } catch { /* ignore */ }
+    }
+
+    // Clear selection after highlighting
+    window.getSelection()?.removeAllRanges();
+    savedRangeRef.current = null;
+    setSelectedWord(null);
   };
 
   // ─── STYLE HELPERS ─────────────────────────────────────────────────────────
@@ -770,6 +852,30 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                         ))}
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+
+              {/* Highlighter Color Picker */}
+              <div className="relative">
+                <button onClick={() => setShowHighlightPicker(!showHighlightPicker)} className="px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1" style={showHighlightPicker ? btnActiveStyle : btnStyle} title="Choose Highlight Color">
+                  <Highlighter className="w-4 h-4" style={{ color: activeHighlightColor.border }} />
+                  <ChevronDown className="w-3 h-3 opacity-60" />
+                </button>
+                {showHighlightPicker && (
+                  <div className="absolute right-0 top-11 z-50 w-56 p-3 rounded-2xl shadow-2xl space-y-2" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
+                    <div className="flex items-center justify-between pb-2" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
+                      <span className="font-bold text-xs">Highlighter Color</span>
+                      <button onClick={() => setShowHighlightPicker(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      {HIGHLIGHT_COLORS.map(color => (
+                        <button key={color.id} onClick={() => { setActiveHighlightColor(color); setShowHighlightPicker(false); }} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105" style={{ background: color.bg, color: T.text, border: `1px solid ${color.border}`, opacity: activeHighlightColor.id === color.id ? 1 : 0.6 }}>
+                          <span className="w-3 h-3 rounded-full" style={{ background: color.border }} />
+                          {color.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -937,6 +1043,10 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                     <button onClick={() => speakWord(dictionaryData?.word || selectedWord)} className="p-1 rounded transition-transform hover:scale-105" style={{ background: T.panelItemBg, color: T.panelAccent }} title="Pronounce">
                       <Volume2 className={`w-3.5 h-3.5 ${isPlayingAudio ? "animate-pulse" : ""}`} />
                     </button>
+                    {/* HIGHLIGHT BUTTON */}
+                    <button onClick={applyHighlight} className="p-1 rounded transition-transform hover:scale-105 ml-1 flex items-center gap-1 px-1.5 text-[10px] font-bold" style={{ background: activeHighlightColor.bg, color: T.text, border: `1px solid ${activeHighlightColor.border}` }} title="Highlight Text">
+                      <Highlighter className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Highlight</span>
+                    </button>
                   </div>
                   <button onClick={() => setSelectedWord(null)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
                 </div>
@@ -1062,35 +1172,79 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
           {/* ── BOTTOM PROGRESS & NAV BAR ────────────────────────────── */}
           <div className="shrink-0 z-20" style={{ background: T.toolbarBg, borderTop: `1px solid ${T.toolbarBorder}` }}>
-            {/* ── FANCY PROGRESS BAR ── */}
-            <div className="relative w-full h-3 overflow-hidden" style={{ background: T.progressBg }}>
-              {/* Animated gradient fill */}
+
+            {/* ══ ULTRA-SMOOTH PROGRESS BAR ══ */}
+            <div className="relative w-full" style={{ height: "6px", background: T.progressBg }}>
+              {/* Track glow underneath */}
+              <div className="absolute inset-0" style={{ background: T.progressBg, borderRadius: "0 0 0 0" }} />
+
+              {/* Main fill — spring-physics transition */}
               <div
-                className="h-full transition-all duration-500 ease-out relative overflow-hidden"
-                style={{ width: `${Math.max(1, displayProgress)}%`, background: T.progressGrad }}
+                className="absolute top-0 left-0 h-full"
+                style={{
+                  width: `${Math.max(0.5, displayProgress)}%`,
+                  background: T.progressGrad,
+                  backgroundSize: "300% 100%",
+                  animation: "gradSlide 3s linear infinite",
+                  transition: "width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                  borderRadius: "0 3px 3px 0",
+                  boxShadow: `0 0 12px ${T.progressFg}88, 0 0 4px ${T.progressFg}44`,
+                  overflow: "hidden",
+                  position: "relative",
+                }}
               >
-                {/* Shimmer effect */}
+                {/* Inner shimmer sweep */}
                 <div
-                  className="absolute inset-0 -skew-x-12"
+                  className="absolute inset-0"
                   style={{
-                    background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%)",
-                    animation: "shimmer 2s infinite",
-                    width: "200%",
-                    left: "-100%",
+                    background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%)",
+                    animation: "shimmerSweep 1.8s ease-in-out infinite",
                   }}
                 />
               </div>
-              {/* Percentage label centered on bar */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-[9px] font-bold tracking-wider mix-blend-overlay select-none" style={{ color: "#fff", textShadow: "0 0 4px rgba(0,0,0,0.8)" }}>
-                  {displayProgress}%{scrollMode === "vertical" ? " read" : ` — ch ${currentChapterIndex + 1}/${chapters.length}`}
-                </span>
-              </div>
-              {/* Glow dot at progress tip */}
-              {displayProgress > 0 && displayProgress < 100 && (
+
+              {/* Floating percentage tooltip above the orb */}
+              {displayProgress > 2 && displayProgress < 98 && (
                 <div
-                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full shadow-lg"
-                  style={{ left: `calc(${displayProgress}% - 6px)`, background: T.progressFg, boxShadow: `0 0 8px ${T.progressFg}` }}
+                  className="absolute select-none pointer-events-none"
+                  style={{
+                    left: `calc(${displayProgress}% - 18px)`,
+                    top: "-24px",
+                    transition: "left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                    zIndex: 10,
+                  }}
+                >
+                  <div
+                    className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                    style={{
+                      background: T.progressFg,
+                      color: "#fff",
+                      boxShadow: `0 2px 8px ${T.progressFg}80`,
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    {displayProgress}%
+                  </div>
+                  {/* Tiny caret */}
+                  <div className="w-0 h-0 mx-auto" style={{ borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: `4px solid ${T.progressFg}` }} />
+                </div>
+              )}
+
+              {/* Glowing orb at tip */}
+              {displayProgress > 0 && (
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 rounded-full"
+                  style={{
+                    left: `calc(${Math.max(0.5, displayProgress)}% - 5px)`,
+                    transition: "left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                    width: "10px",
+                    height: "10px",
+                    background: "#fff",
+                    border: `2px solid ${T.progressFg}`,
+                    boxShadow: `0 0 0 3px ${T.progressFg}44, 0 0 12px ${T.progressFg}99`,
+                    animation: "orbPulse 2s ease-in-out infinite",
+                    zIndex: 5,
+                  }}
                 />
               )}
             </div>
@@ -1107,7 +1261,6 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                 ) : (
                   <span>Chapter {currentChapterIndex + 1} / {Math.max(1, chapters.length)}</span>
                 )}
-                {/* Bookmark quick indicator */}
                 {isCurrentPageBookmarked && (
                   <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style={{ background: T.panelAccent + "30", color: T.panelAccent }}>
                     <BookmarkCheck className="w-3 h-3" /> Bookmarked
@@ -1121,12 +1274,24 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             </div>
           </div>
 
-          {/* Shimmer keyframe via style tag */}
+          {/* Keyframes */}
           <style>{`
-            @keyframes shimmer {
-              0% { transform: translateX(-100%) skewX(-12deg); }
-              100% { transform: translateX(200%) skewX(-12deg); }
+            @keyframes shimmerSweep {
+              0%   { transform: translateX(-120%); }
+              60%  { transform: translateX(120%); }
+              100% { transform: translateX(120%); }
             }
+            @keyframes gradSlide {
+              0%   { background-position: 0% 50%; }
+              50%  { background-position: 100% 50%; }
+              100% { background-position: 0% 50%; }
+            }
+            @keyframes orbPulse {
+              0%, 100% { box-shadow: 0 0 0 3px var(--orb-ring, rgba(99,102,241,0.3)), 0 0 10px rgba(99,102,241,0.5); transform: translateY(-50%) scale(1); }
+              50%       { box-shadow: 0 0 0 5px var(--orb-ring, rgba(99,102,241,0.15)), 0 0 18px rgba(99,102,241,0.7); transform: translateY(-50%) scale(1.15); }
+            }
+            mark[data-lumina-highlight] { cursor: pointer; }
+            mark[data-lumina-highlight]:hover { filter: brightness(1.1); }
           `}</style>
         </div>
       ) : null}
