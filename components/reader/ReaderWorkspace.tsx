@@ -23,7 +23,6 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
   const [epubBook, setEpubBook] = useState<EpubBook | null>(null);
   const [rendition, setRendition] = useState<Rendition | null>(null);
   const [toc, setToc] = useState<NavItem[]>([]);
-  const [currentLocation, setCurrentLocation] = useState<string>("");
   const [progress, setProgress] = useState(0);
 
   // Text Fallback states
@@ -62,7 +61,6 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
     const ext = f.name.split('.').pop()?.toLowerCase() || '';
     setFileType(ext);
 
-    // Clean previous rendition if exists
     if (rendition) {
       rendition.destroy();
       setRendition(null);
@@ -85,7 +83,6 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
         setIsReading(true);
         setLoading(false);
       } else {
-        // Fallback text parser
         const text = await f.text();
         const paragraphs = text.split(/\n\s*\n/);
         const tempChapters = [];
@@ -107,7 +104,6 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
       }
     } catch (err) {
       console.error("Reader loading error:", err);
-      setErrorMessage("Could not parse file cleanly. Opening text fallback mode.");
       const text = await f.text();
       setTextChapters([{ title: f.name, content: text.replace(/\n/g, '<br/>').slice(0, 50000) }]);
       setCurrentTextChapterIndex(0);
@@ -128,11 +124,36 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
         flow: "paginated"
       });
 
+      // Register default image aspect ratio & paragraph styling rules
+      rend.themes.default({
+        'img': {
+          'max-width': '100% !important',
+          'max-height': '75vh !important',
+          'height': 'auto !important',
+          'width': 'auto !important',
+          'object-fit': 'contain !important',
+          'margin': '0 auto !important',
+          'display': 'block !important'
+        },
+        'svg': {
+          'max-width': '100% !important',
+          'max-height': '75vh !important',
+          'height': 'auto !important',
+          'margin': '0 auto !important',
+          'display': 'block !important'
+        },
+        'body': {
+          'padding': '10px 20px !important'
+        },
+        'p': {
+          'line-height': '1.6 !important'
+        }
+      });
+
       rend.display();
 
       rend.on("relocated", (location: any) => {
         if (location && location.start) {
-          setCurrentLocation(location.start.href);
           if (epubBook.locations && epubBook.locations.length()) {
             const prog = epubBook.locations.percentageFromCfi(location.start.cfi);
             setProgress(Math.round(prog * 100));
@@ -140,7 +161,6 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
         }
       });
 
-      // Generate locations for progress calculation
       epubBook.ready.then(() => {
         epubBook.locations.generate(1000).then(() => {
           if (rend.location && rend.location.start) {
@@ -150,7 +170,18 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
         });
       });
 
+      // Keydown listener for keyboard page turning
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'ArrowRight') rend.next();
+        if (e.key === 'ArrowLeft') rend.prev();
+      };
+      window.addEventListener('keydown', handleKeyDown);
+
       setRendition(rend);
+
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+      };
     }
   }, [isReading, fileType, epubBook]);
 
@@ -164,8 +195,8 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
           ? { body: { background: '#fbf0d9 !important', color: '#433422 !important' } }
           : { body: { background: '#ffffff !important', color: '#0f172a !important' } };
 
-      rendition.themes.register('custom', themeCss);
-      rendition.themes.select('custom');
+      rendition.themes.register('customTheme', themeCss);
+      rendition.themes.select('customTheme');
       rendition.themes.fontSize(`${fontSize}px`);
     }
   }, [theme, fontSize, rendition]);
@@ -254,7 +285,6 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
       )}
 
       {!isReading && !loading ? (
-        /* Upload Dropzone */
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
@@ -312,7 +342,6 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
           </div>
         </div>
       ) : isReading ? (
-        /* Full Viewport E-Reader Interface */
         <div className={`rounded-2xl shadow-2xl flex flex-col h-[calc(100vh-100px)] border border-slate-200 dark:border-slate-800 transition-colors ${getThemeClass()}`}>
           {/* Top Reader Toolbar */}
           <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs shrink-0">
@@ -393,7 +422,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
           <div className="relative flex-1 flex overflow-hidden">
             {/* Table of Contents Drawer */}
             {showToc && toc.length > 0 && (
-              <div className="w-72 border-r border-slate-200 dark:border-slate-800 p-4 space-y-2 bg-slate-50 dark:bg-slate-900 text-xs shrink-0 overflow-y-auto">
+              <div className="w-72 border-r border-slate-200 dark:border-slate-800 p-4 space-y-2 bg-slate-50 dark:bg-slate-900 text-xs shrink-0 overflow-y-auto z-20">
                 <h4 className="font-bold text-sm mb-3">Table of Contents</h4>
                 {toc.map((item, idx) => (
                   <button
@@ -413,9 +442,9 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
             )}
 
             {/* Reading Viewport */}
-            <div className="flex-1 w-full h-full p-4 sm:p-8 flex items-center justify-center overflow-hidden">
+            <div className="flex-1 w-full h-full p-2 sm:p-6 flex items-center justify-center overflow-hidden">
               {fileType === 'epub' ? (
-                <div ref={viewerRef} className="w-full h-full" />
+                <div ref={viewerRef} className="w-full h-full flex items-center justify-center overflow-hidden" />
               ) : (
                 <div className="w-full h-full max-w-4xl mx-auto overflow-y-auto p-4 sm:p-8 space-y-6">
                   <h3 className="text-xl font-bold border-b pb-3 opacity-90">
