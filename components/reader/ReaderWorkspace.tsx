@@ -750,6 +750,12 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     renderCSSHighlights();
   }, [renderCSSHighlights]);
 
+  // Re-apply highlights whenever the component re-renders (like during theme or font changes)
+  // because React updating the <style> tags might clear the CSS custom highlights registry in some browsers.
+  useEffect(() => {
+    renderCSSHighlights();
+  });
+
 
   // ─── MOUSE SELECTION HANDLER ───────────────────────────────────────────────
 
@@ -766,6 +772,14 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     if (isEraserMode) {
       if (typeof CSS !== "undefined" && "highlights" in CSS) {
         eraseHighlights(range);
+      } else {
+        // Fallback for older browsers
+        try {
+          document.designMode = "on";
+          document.execCommand("removeFormat", false);
+          document.execCommand("backColor", false, "transparent");
+          document.designMode = "off";
+        } catch (e) {}
       }
       selection.removeAllRanges();
       return; // Skip dictionary
@@ -928,43 +942,45 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                 {/* Mode Toggle Button */}
                 <button 
                   onClick={() => { setIsHighlightMode(!isHighlightMode); setIsEraserMode(false); }} 
-                  className="px-2.5 py-1.5 flex items-center gap-1.5 text-xs font-semibold transition-colors border-r" 
-                  style={isHighlightMode ? { background: activeHighlightColor.bg, color: T.panelText, borderColor: T.btnBorder } : { background: "transparent", color: T.btnText, borderColor: T.btnBorder }} 
-                  title={isHighlightMode ? "Highlighter Mode ON - Drag to highlight text" : "Turn On Highlighter Mode"}
+                  className="px-3 py-1.5 flex items-center transition-colors border-r" 
+                  style={isHighlightMode ? { background: activeHighlightColor.bg, borderColor: T.btnBorder } : { background: "transparent", borderColor: T.btnBorder }} 
+                  title="Highlighter Mode"
                 >
-                  <Highlighter className="w-3.5 h-3.5" style={!isHighlightMode ? { color: activeHighlightColor.border } : {}} />
-                  <span className="hidden md:inline text-[10px] uppercase tracking-wider">{isHighlightMode ? "Highlighting" : "Highlight"}</span>
+                  <Highlighter className="w-4 h-4" style={!isHighlightMode ? { color: activeHighlightColor.border } : { color: T.text }} />
                 </button>
 
                 {/* Eraser Mode Toggle */}
                 <button 
                   onClick={() => { setIsEraserMode(!isEraserMode); setIsHighlightMode(false); }}
-                  className="px-2.5 py-1.5 flex items-center transition-colors border-r"
+                  className="px-3 py-1.5 flex items-center transition-colors border-r"
                   style={isEraserMode ? { background: T.panelAccent, color: T.panelAccentText, borderColor: T.btnBorder } : { background: "transparent", color: T.btnText, borderColor: T.btnBorder }}
-                  title="Eraser Mode - Drag over highlights to remove them"
+                  title="Eraser Mode"
                 >
-                  <Eraser className="w-3.5 h-3.5" />
+                  <Eraser className="w-4 h-4" />
                 </button>
 
                 {/* Color Picker Dropdown */}
                 <div className="relative">
-                  <button onClick={() => setShowHighlightPicker(!showHighlightPicker)} className="px-1.5 py-1.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors h-full flex items-center">
+                  <button 
+                    onClick={() => setShowHighlightPicker(!showHighlightPicker)} 
+                    className="px-2 py-1.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors h-full flex items-center gap-1.5" 
+                    title="Choose Color"
+                  >
+                    <div className="w-3.5 h-3.5 rounded-full shadow-sm" style={{ background: activeHighlightColor.bg, border: `1px solid ${activeHighlightColor.border}` }} />
                     <ChevronDown className="w-3 h-3" style={{ color: T.btnText }} />
                   </button>
                   {showHighlightPicker && (
-                    <div className="absolute right-0 top-11 z-50 w-56 p-3 rounded-2xl shadow-2xl space-y-2" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
-                      <div className="flex items-center justify-between pb-2" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
-                        <span className="font-bold text-xs">Highlighter Color</span>
+                    <div className="absolute right-0 top-11 z-50 w-48 p-2 rounded-2xl shadow-2xl space-y-1" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
+                      <div className="flex items-center justify-between pb-2 mb-1" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
+                        <span className="font-bold text-xs px-1">Colors</span>
                         <button onClick={() => setShowHighlightPicker(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 pt-1">
-                        {HIGHLIGHT_COLORS.map(color => (
-                          <button key={color.id} onClick={() => { setActiveHighlightColor(color); setIsHighlightMode(true); setIsEraserMode(false); setShowHighlightPicker(false); }} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105" style={{ background: color.bg, color: T.text, border: `1px solid ${color.border}`, opacity: activeHighlightColor.id === color.id ? 1 : 0.6 }}>
-                            <span className="w-3 h-3 rounded-full" style={{ background: color.border }} />
-                            {color.label}
-                          </button>
-                        ))}
-                      </div>
+                      {HIGHLIGHT_COLORS.map(color => (
+                        <button key={color.id} onClick={() => { setActiveHighlightColor(color); setIsHighlightMode(true); setIsEraserMode(false); setShowHighlightPicker(false); }} className="w-full flex items-center gap-2 px-2 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105" style={{ background: color.bg, color: T.text, border: `1px solid ${color.border}`, opacity: activeHighlightColor.id === color.id ? 1 : 0.6 }}>
+                          <span className="w-3 h-3 rounded-full" style={{ background: color.border }} />
+                          {color.label}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
