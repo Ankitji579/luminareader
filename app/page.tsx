@@ -1,4 +1,5 @@
 import ReaderWorkspace from "@/components/reader/ReaderWorkspace";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BookOpen } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -37,7 +38,7 @@ export default function HomePage() {
         </div>
 
         <div className="w-full animate-fade-in-up delay-200">
-          <ReaderWorkspace />
+          <ErrorBoundary><ReaderWorkspace /></ErrorBoundary>
         </div>
 
       </main>
