@@ -10,10 +10,10 @@ export default function HomePage() {
       <div className="absolute inset-0 z-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
       <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_800px_at_50%_-30%,#4f46e520,transparent)]"></div>
 
-      <section className="w-full max-w-7xl mx-auto px-6 pt-12 lg:pt-16 pb-12 lg:pb-24 flex flex-col lg:flex-row items-center gap-16 relative z-10">
+      <section className="w-full max-w-7xl mx-auto px-6 pt-6 lg:pt-8 pb-12 lg:pb-20 flex flex-col lg:flex-row items-center gap-12 lg:gap-16 relative z-10">
         
         {/* Left Column: Copy & Typography */}
-        <div className="flex-1 space-y-10 lg:pr-10 text-center lg:text-left z-10 w-full">
+        <div className="flex-1 space-y-8 lg:pr-10 text-center lg:text-left z-10 w-full">
           
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/5 dark:bg-white/5 border border-slate-900/10 dark:border-white/10 text-slate-700 dark:text-slate-300 text-xs font-bold tracking-wider uppercase backdrop-blur-md animate-fade-in-up">
             <span className="relative flex h-2 w-2">
