@@ -22,6 +22,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   const [bookAuthor, setBookAuthor] = useState<string>("");
   const [chapters, setChapters] = useState<ParsedChapter[]>([]);
   const [toc, setToc] = useState<TocItem[]>([]);
+  const [pathMap, setPathMap] = useState<Record<string, number>>({});
   const [currentChapterIndex, setCurrentChapterIndex] = useState<number>(0);
 
   // Customization & Typography
@@ -152,6 +153,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         setBookAuthor(parsed.author || "");
         setChapters(parsed.chapters);
         setToc(parsed.toc);
+        setPathMap(parsed.pathMap);
         setCurrentChapterIndex(0);
         setIsReading(true);
         setLoading(false);
@@ -160,6 +162,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         const paragraphs = text.split(/\n\s*\n/);
         const tempChapters: ParsedChapter[] = [];
         const tempToc: TocItem[] = [];
+        const tempPathMap: Record<string, number> = {};
         let currentChunk = "";
 
         for (let i = 0; i < paragraphs.length; i++) {
@@ -168,6 +171,8 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             const chTitle = `Section ${tempChapters.length + 1}`;
             tempChapters.push({
               id: `section-${tempChapters.length + 1}`,
+              fullPath: `section-${tempChapters.length + 1}`,
+              fileName: `section-${tempChapters.length + 1}`,
               title: chTitle,
               html: currentChunk.replace(/\n/g, '<br/>'),
               textLength: currentChunk.length
@@ -176,14 +181,16 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
               label: chTitle,
               chapterIndex: tempChapters.length - 1
             });
+            tempPathMap[`section-${tempChapters.length}`] = tempChapters.length - 1;
             currentChunk = "";
           }
         }
 
         setBookTitle(f.name.replace(/\.[^/.]+$/, ""));
         setBookAuthor("Document");
-        setChapters(tempChapters.length > 0 ? tempChapters : [{ id: "c1", title: f.name, html: text.replace(/\n/g, '<br/>'), textLength: text.length }]);
+        setChapters(tempChapters.length > 0 ? tempChapters : [{ id: "c1", fullPath: "c1", fileName: "c1", title: f.name, html: text.replace(/\n/g, '<br/>'), textLength: text.length }]);
         setToc(tempToc);
+        setPathMap(tempPathMap);
         setCurrentChapterIndex(0);
         setIsReading(true);
         setLoading(false);
@@ -193,12 +200,42 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
       try {
         const text = await f.text();
         setBookTitle(f.name);
-        setChapters([{ id: "fallback", title: f.name, html: text.replace(/\n/g, '<br/>').slice(0, 60000), textLength: text.length }]);
+        setChapters([{ id: "fallback", fullPath: "fallback", fileName: "fallback", title: f.name, html: text.replace(/\n/g, '<br/>').slice(0, 60000), textLength: text.length }]);
         setToc([{ label: "Start", chapterIndex: 0 }]);
         setCurrentChapterIndex(0);
         setIsReading(true);
       } catch {}
       setLoading(false);
+    }
+  };
+
+  // Intercept click on in-book chapter hyperlinks
+  const handleContentClick = (e: React.MouseEvent) => {
+    const anchorEl = (e.target as HTMLElement).closest('a');
+    if (anchorEl) {
+      const targetFile = anchorEl.getAttribute('data-chapter-target');
+      const anchor = anchorEl.getAttribute('data-anchor-target');
+      const href = anchorEl.getAttribute('href');
+
+      if (targetFile || (href && !href.startsWith('http') && !href.startsWith('mailto'))) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const fileToFind = (targetFile || href || '').split('#')[0].split('/').pop() || '';
+        const targetIdx = pathMap[fileToFind] ?? (targetFile ? pathMap[targetFile] : undefined);
+
+        if (typeof targetIdx === 'number' && targetIdx >= 0 && targetIdx < chapters.length) {
+          setCurrentChapterIndex(targetIdx);
+          if (anchor) {
+            setTimeout(() => {
+              const el = document.getElementById(anchor) || document.querySelector(`[name="${anchor}"]`);
+              el?.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+          }
+          if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+          return;
+        }
+      }
     }
   };
 
@@ -247,8 +284,8 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 <p>"Not at all. This gentleman, Mr. Wilson, has been my partner and helper in many of my most interesting cases, and I have no doubt that he will be of the utmost use to me in yours also."</p>`;
 
     setChapters([
-      { id: "ch1", title: "Chapter 1: A Scandal in Bohemia", html: demoChapter1, textLength: demoChapter1.length },
-      { id: "ch2", title: "Chapter 2: The Red-Headed League", html: demoChapter2, textLength: demoChapter2.length }
+      { id: "ch1", fullPath: "ch1.html", fileName: "ch1.html", title: "Chapter 1: A Scandal in Bohemia", html: demoChapter1, textLength: demoChapter1.length },
+      { id: "ch2", fullPath: "ch2.html", fileName: "ch2.html", title: "Chapter 2: The Red-Headed League", html: demoChapter2, textLength: demoChapter2.length }
     ]);
     setToc([
       { label: "Chapter 1: A Scandal in Bohemia", chapterIndex: 0 },
@@ -809,6 +846,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
               {/* Reader Document Container with Zoom & Page Turn Transitions */}
               <div 
                 ref={scrollContainerRef}
+                onClick={handleContentClick}
                 className={`w-full h-full no-scrollbar hide-scrollbar transition-transform duration-200 ease-out ${
                   scrollMode === 'vertical' 
                     ? 'overflow-y-auto overflow-x-hidden p-4 sm:p-10' 
