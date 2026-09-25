@@ -369,22 +369,65 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     }
   }, [selectedFont]);
 
-  // ─── VERTICAL SCROLL PROGRESS TRACKER ──────────────────────────────────────
-
+  // ─── SCROLL & CHAPTER PROGRESS TRACKER ──────────────────────────────────────
+  
   useEffect(() => {
     const container = scrollContainerRef.current;
-    if (!container || scrollMode !== "vertical") return;
+    if (!container || !isReading) return;
+
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = container;
       const max = scrollHeight - clientHeight;
-      if (max <= 0) { setVerticalProgress(100); return; }
-      const pct = Math.min(100, Math.round((scrollTop / max) * 100));
+      const pct = max <= 0 ? 100 : Math.min(100, Math.round((scrollTop / max) * 100));
       setVerticalProgress(pct);
+
+      if (scrollMode === "horizontal") {
+        setChapterProgress(max <= 0 ? 100 : Math.min(100, Math.max(0, (scrollTop / max) * 100)));
+      } else {
+        // Vertical mode: calculate progress based on the chapter in view
+        let found = false;
+        const containerRect = container.getBoundingClientRect();
+        
+        for (let i = 0; i < chapters.length; i++) {
+          const el = document.getElementById(`chapter-container-${i}`);
+          if (!el) continue;
+          const rect = el.getBoundingClientRect();
+          
+          const relTop = rect.top - containerRect.top;
+          const relBottom = rect.bottom - containerRect.top;
+          
+          if (relTop <= containerRect.height && relBottom >= 0) {
+            if (relTop <= 0 && relBottom >= 0) {
+              const maxScroll = Math.max(1, rect.height - containerRect.height);
+              const progress = Math.min(100, Math.max(0, (-relTop / maxScroll) * 100));
+              setChapterProgress(progress);
+              
+              if (currentChapterIndex !== i && -relTop > 50) {
+                 setCurrentChapterIndex(i);
+              }
+              found = true;
+              break;
+            } else if (relTop > 0) {
+              if (!found) setChapterProgress(0);
+              found = true;
+              break;
+            }
+          }
+        }
+      }
     };
+
     container.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll(); // init
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, [scrollMode, isReading, chapters]);
+    window.addEventListener("resize", handleScroll);
+    
+    // Slight delay to allow DOM to render before calculating
+    setTimeout(handleScroll, 100);
+
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [scrollMode, isReading, chapters, currentChapterIndex]);
 
   // Reset vertical progress when switching modes
   useEffect(() => {
@@ -1204,8 +1247,9 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
           {/* ── CHAPTER PROGRESS BAR (Top Edge) ── */}
           <div className="w-full h-1.5 z-40 relative" style={{ background: T.toolbarBg }}>
+            <div className="absolute inset-0 opacity-10" style={{ background: T.toolbarText }} />
             <div 
-              className="h-full transition-all duration-150 ease-out rounded-r-full"
+              className="absolute left-0 top-0 h-full transition-all duration-150 ease-out rounded-r-full"
               style={{ 
                 width: `${chapterProgress}%`, 
                 background: T.panelAccent,
