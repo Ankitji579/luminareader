@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { 
   Upload, BookOpen, Sun, Moon, Book, ZoomIn, ZoomOut, 
   List, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2, 
-  Maximize, Minimize, Search, X, Volume2, Type, ChevronDown 
+  Maximize, Minimize, Search, X, Type, ChevronDown, Layers, HelpCircle, MoveVertical, MoveHorizontal 
 } from "lucide-react";
 import ePub, { Book as EpubBook, Rendition, NavItem } from "epubjs";
 import { GOOGLE_FONTS, FontOption } from "@/lib/fonts-data";
@@ -35,10 +35,13 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   // Customization State
   const [fontSize, setFontSize] = useState<number>(18);
   const [theme, setTheme] = useState<"light" | "sepia" | "dark" | "oled">("light");
-  const [selectedFont, setSelectedFont] = useState<FontOption>(GOOGLE_FONTS[0]); // Default Merriweather
+  const [selectedFont, setSelectedFont] = useState<FontOption>(GOOGLE_FONTS[0]);
+  const [scrollMode, setScrollMode] = useState<"horizontal" | "vertical">("horizontal");
   const [showFontMenu, setShowFontMenu] = useState(false);
   const [fontSearchQuery, setFontSearchQuery] = useState("");
   const [showToc, setShowToc] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [pageTurnAnim, setPageTurnAnim] = useState(false);
 
   // Dictionary Popup State
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
@@ -47,6 +50,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   const [dictionaryLoading, setDictionaryLoading] = useState(false);
 
   const viewerRef = useRef<HTMLDivElement>(null);
+  const keyIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];
@@ -122,11 +126,8 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   };
 
   // Dynamically load Google Font into parent & EpubJS iframe
-  const loadGoogleFont = (fontName: string) => {
-    const fontSlug = fontName.replace(/\s+/g, '+');
-    const href = `https://fonts.googleapis.com/css2?family=${fontSlug}:wght@400;600;700&display=swap`;
-    
-    // Inject into parent document
+  const loadGoogleFont = (googleName: string) => {
+    const href = `https://fonts.googleapis.com/css2?family=${googleName}:wght@400;600;700&display=swap`;
     if (typeof document !== 'undefined' && !document.querySelector(`link[href="${href}"]`)) {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
@@ -145,43 +146,36 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         width: "100%",
         height: "100%",
         spread: "none",
-        flow: "paginated"
+        flow: scrollMode === "horizontal" ? "paginated" : "scrolled-doc"
       });
 
-      // Register EpubJS content hooks for DOM cleaning & font injection
       rend.hooks.content.register((contents: any) => {
-        const fontHref = loadGoogleFont(selectedFont.name);
+        const fontHref = loadGoogleFont(selectedFont.googleName);
         contents.addStylesheet(fontHref);
 
-        contents.addStylesheetRules({
-          "img": {
-            "max-width": "100% !important",
-            "max-height": "70vh !important",
-            "width": "auto !important",
-            "height": "auto !important",
-            "object-fit": "contain !important",
-            "margin": "0 auto !important",
-            "display": "block !important"
-          },
-          "svg": {
-            "max-width": "100% !important",
-            "max-height": "70vh !important",
-            "width": "auto !important",
-            "height": "auto !important",
-            "margin": "0 auto !important",
-            "display": "block !important"
-          },
-          "svg image": {
-            "max-width": "100% !important",
-            "max-height": "70vh !important",
-            "width": "auto !important",
-            "height": "auto !important"
-          },
-          "body": {
-            "padding": "10px 40px !important",
-            "box-sizing": "border-box !important"
+        // Inject font family stylesheet directly into iframe document
+        const fontCss = `
+          @import url('${fontHref}');
+          * {
+            font-family: ${selectedFont.family} !important;
           }
-        });
+          img, svg {
+            max-width: 100% !important;
+            max-height: 70vh !important;
+            width: auto !important;
+            height: auto !important;
+            object-fit: contain !important;
+            margin: 0 auto !important;
+            display: block !important;
+          }
+          body {
+            padding: 10px 40px !important;
+            box-sizing: border-box !important;
+          }
+        `;
+        const style = contents.document.createElement('style');
+        style.innerHTML = fontCss;
+        contents.document.head.appendChild(style);
 
         const doc = contents.document;
         if (doc) {
@@ -227,10 +221,17 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         });
       });
 
+      // Keyboard Listener supporting holding keys down for rapid page turning
       const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'ArrowRight') rend.next();
-        if (e.key === 'ArrowLeft') rend.prev();
+        if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+          triggerPageTurn('next', rend);
+        } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+          triggerPageTurn('prev', rend);
+        } else if (e.key === 'Escape') {
+          setIsReading(false);
+        }
       };
+
       const handleResize = () => {
         if (viewerRef.current) {
           rend.resize(viewerRef.current.clientWidth, viewerRef.current.clientHeight);
@@ -247,12 +248,30 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         window.removeEventListener('resize', handleResize);
       };
     }
-  }, [isReading, fileType, epubBook]);
+  }, [isReading, fileType, epubBook, scrollMode]);
 
-  // Update theme & font size
+  // Page turn trigger with animation
+  const triggerPageTurn = (direction: 'next' | 'prev', rendInstance?: Rendition | null) => {
+    setPageTurnAnim(true);
+    setTimeout(() => setPageTurnAnim(false), 200);
+
+    const r = rendInstance || rendition;
+    if (fileType === 'epub' && r) {
+      if (direction === 'next') r.next();
+      else r.prev();
+    } else {
+      if (direction === 'next') {
+        setCurrentTextChapterIndex((prev) => Math.min(textChapters.length - 1, prev + 1));
+      } else {
+        setCurrentTextChapterIndex((prev) => Math.max(0, prev - 1));
+      }
+    }
+  };
+
+  // Update themes and fonts
   useEffect(() => {
     if (rendition) {
-      const fontHref = loadGoogleFont(selectedFont.name);
+      const fontHref = loadGoogleFont(selectedFont.googleName);
 
       const themeCss = 
         theme === 'dark' 
@@ -265,7 +284,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
       rendition.themes.register('customTheme', {
         ...themeCss,
-        'p, div, span, h1, h2, h3, h4, li, a': {
+        '*': {
           'font-family': `${selectedFont.family} !important`
         }
       });
@@ -275,7 +294,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     }
   }, [theme, fontSize, selectedFont, rendition]);
 
-  // Robust Dictionary Lookup Function with Backup Datamuse API
+  // Robust Dictionary Lookup Function with Backup API
   const lookupWord = async (word: string) => {
     const cleanWord = word.toLowerCase().trim();
     setSelectedWord(cleanWord);
@@ -284,7 +303,6 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     setDictionaryMeanings([]);
 
     try {
-      // 1. Primary: Free Dictionary API
       const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${cleanWord}`);
       if (res.ok) {
         const data = await res.json();
@@ -302,7 +320,6 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         }
         setDictionaryMeanings(meanings);
       } else {
-        // 2. Backup API: Datamuse Word Definitions API
         const backupRes = await fetch(`https://api.datamuse.com/words?sp=${cleanWord}&md=d&max=1`);
         if (backupRes.ok) {
           const backupData = await backupRes.json();
@@ -325,37 +342,17 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     }
   };
 
-  const prevPage = () => {
-    if (fileType === 'epub' && rendition) {
-      rendition.prev();
-    } else {
-      setCurrentTextChapterIndex(Math.max(0, currentTextChapterIndex - 1));
-    }
-  };
-
-  const nextPage = () => {
-    if (fileType === 'epub' && rendition) {
-      rendition.next();
-    } else {
-      setCurrentTextChapterIndex(Math.min(textChapters.length - 1, currentTextChapterIndex + 1));
-    }
-  };
-
   const loadDemoBook = async () => {
     setLoading(true);
     setFileName("Sherlock_Holmes_Classic_Demo.txt");
     setFileType("txt");
     const demoContent1 = `Chapter 1: A Scandal in Bohemia
 
-To Sherlock Holmes she is always THE woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex. It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind. He was, I take it, the most perfect reasoning and observing machine that the world has seen, but as a lover he would have placed himself in a false position.
-
-He never spoke of the softer passions, save with a gibe and a sneer. They were admirable things for the observer—excellent for drawing the veil from men's motives and actions. But for the trained reasoner to admit such intrusions into his own delicate and finely adjusted temperament was to introduce a distracting factor which might throw a doubt upon all his mental results.`;
+To Sherlock Holmes she is always THE woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex. It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind. He was, I take it, the most perfect reasoning and observing machine that the world has seen, but as a lover he would have placed himself in a false position.`;
 
     const demoContent2 = `Chapter 2: The Red-Headed League
 
-I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last year and found him in deep conversation with a very stout, florid-faced, elderly gentleman with fiery red hair. With an apology for my intrusion, I was about to withdraw when Holmes pulled me abruptly into the room and closed the door behind me.
-
-"You could not have come at a better time, my dear Watson," he said cordially.`;
+I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last year and found him in deep conversation with a very stout, florid-faced, elderly gentleman with fiery red hair. With an apology for my intrusion, I was about to withdraw when Holmes pulled me abruptly into the room and closed the door behind me.`;
 
     setTextChapters([
       { title: "Chapter 1: A Scandal in Bohemia", content: demoContent1.replace(/\n/g, '<br/>') },
@@ -384,13 +381,12 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
   );
 
   return (
-    /* Edge-to-Edge Full Screen Overlay when reading */
     <div className={`w-full ${isReading ? 'fixed inset-0 z-50 bg-slate-950 p-0 overflow-hidden' : 'max-w-7xl mx-auto my-4 px-2 sm:px-4'}`}>
       {loading && (
         <div className="p-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 max-w-xl mx-auto my-12">
           <div className="w-14 h-14 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
           <h3 className="text-lg font-bold text-slate-900 dark:text-white">Opening E-Book Workspace...</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Loading chapters, 100+ Google fonts & table of contents.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Loading chapters, Google fonts & scroll layouts.</p>
         </div>
       )}
 
@@ -442,17 +438,16 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-indigo-500 shrink-0" />
-                <span>Instant Dictionary & 100+ Fonts</span>
+                <span>Horizontal Paginated & Vertical Scroll Modes</span>
               </div>
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-amber-500 shrink-0" />
-                <span>Edge-to-Edge Full Screen Reader</span>
+                <span>Page Turn Animations & Fast Key Cycle</span>
               </div>
             </div>
           </div>
         </div>
       ) : isReading ? (
-        /* Edge-to-Edge Reader Layout */
         <div className={`flex flex-col h-screen w-screen transition-colors ${getThemeClass()}`}>
           {/* Reader Top Toolbar */}
           <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs shrink-0 bg-opacity-95 backdrop-blur z-30">
@@ -473,23 +468,43 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
             </div>
 
             <div className="flex items-center gap-2">
-              {/* 100+ Fonts Picker Modal Trigger */}
+              {/* Vertical / Horizontal Scroll Mode Toggle */}
+              {fileType === 'epub' && (
+                <button
+                  onClick={() => setScrollMode(scrollMode === 'horizontal' ? 'vertical' : 'horizontal')}
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5"
+                  title="Toggle Horizontal Paginated vs Vertical Continuous Scroll"
+                >
+                  {scrollMode === 'horizontal' ? (
+                    <>
+                      <MoveHorizontal className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Flip Pages</span>
+                    </>
+                  ) : (
+                    <>
+                      <MoveVertical className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>Continuous Scroll</span>
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* 100+ Fonts Picker */}
               <div className="relative">
                 <button
                   onClick={() => setShowFontMenu(!showFontMenu)}
                   className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5"
-                  title="Select from 100+ Google Fonts"
+                  title="Select Google Font"
                 >
                   <Type className="w-3.5 h-3.5 text-indigo-500" />
                   <span className="truncate max-w-[100px]">{selectedFont.name}</span>
                   <ChevronDown className="w-3 h-3 opacity-60" />
                 </button>
 
-                {/* 100+ Fonts Dropdown Modal */}
                 {showFontMenu && (
                   <div className="absolute right-0 top-10 z-50 w-72 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-2">
                     <div className="flex items-center justify-between border-b pb-2">
-                      <span className="font-bold text-xs">100+ Google Fonts</span>
+                      <span className="font-bold text-xs">Choose Google Font</span>
                       <button onClick={() => setShowFontMenu(false)} className="text-slate-400 hover:text-slate-600">
                         <X className="w-4 h-4" />
                       </button>
@@ -499,7 +514,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                       <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
                       <input
                         type="text"
-                        placeholder="Search 100+ fonts..."
+                        placeholder="Search fonts..."
                         value={fontSearchQuery}
                         onChange={(e) => setFontSearchQuery(e.target.value)}
                         className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-slate-100 dark:bg-slate-800 border-none focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -520,7 +535,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                               : "hover:bg-slate-100 dark:hover:bg-slate-800"
                           }`}
                         >
-                          <span style={{ fontFamily: font.family }}>{font.name}</span>
+                          <span>{font.name}</span>
                           <span className="text-[10px] opacity-60 uppercase">{font.category}</span>
                         </button>
                       ))}
@@ -529,7 +544,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                 )}
               </div>
 
-              {/* Font Size Controls */}
+              {/* Font Size */}
               <button
                 onClick={() => setFontSize(Math.max(14, fontSize - 2))}
                 className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -548,17 +563,26 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                 <ZoomIn className="w-4 h-4" />
               </button>
 
-              {/* Theme Cycle: Light -> Sepia -> Dark -> OLED */}
+              {/* Theme Toggle */}
               <button
                 onClick={() => setTheme(theme === "light" ? "sepia" : theme === "sepia" ? "dark" : theme === "dark" ? "oled" : "light")}
                 className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 capitalize flex items-center gap-1"
-                title="Switch Reader Theme"
+                title="Switch Theme"
               >
                 {theme === "light" && <Sun className="w-3.5 h-3.5 text-amber-500" />}
                 {theme === "sepia" && <Book className="w-3.5 h-3.5 text-amber-700" />}
                 {theme === "dark" && <Moon className="w-3.5 h-3.5 text-indigo-400" />}
                 {theme === "oled" && <Moon className="w-3.5 h-3.5 text-slate-400" />}
                 <span>{theme}</span>
+              </button>
+
+              {/* Keyboard Shortcuts Helper Toggle */}
+              <button
+                onClick={() => setShowShortcuts(!showShortcuts)}
+                className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+                title="Keyboard Shortcuts"
+              >
+                <HelpCircle className="w-4 h-4" />
               </button>
 
               {fileType === 'epub' && (
@@ -596,6 +620,24 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
               </div>
             )}
 
+            {/* Keyboard Shortcuts Modal */}
+            {showShortcuts && (
+              <div className="absolute top-4 left-4 z-40 w-72 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-3 text-xs">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <span className="font-bold text-sm">Keyboard Controls</span>
+                  <button onClick={() => setShowShortcuts(false)} className="text-slate-400 hover:text-slate-600">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">→</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Space</kbd> <span>Next Page</span></div>
+                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">←</kbd> <span>Previous Page</span></div>
+                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Hold Arrow Key</kbd> <span>Rapid Page Flip</span></div>
+                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Esc</kbd> <span>Close Reader</span></div>
+                </div>
+              </div>
+            )}
+
             {/* Dictionary Popup Modal */}
             {selectedWord && (
               <div className="absolute top-4 right-6 z-40 w-80 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-3 text-xs">
@@ -627,8 +669,8 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
               </div>
             )}
 
-            {/* Reader Viewport */}
-            <div className="flex-1 w-full h-full p-2 sm:p-6 flex items-center justify-center overflow-hidden">
+            {/* Reader Viewport Container with Page Turn Animation */}
+            <div className={`flex-1 w-full h-full p-2 sm:p-6 flex items-center justify-center overflow-hidden transition-all duration-200 ${pageTurnAnim ? 'opacity-40 scale-[0.995]' : 'opacity-100 scale-100'}`}>
               {fileType === 'epub' ? (
                 <div ref={viewerRef} className="w-full h-full flex items-center justify-center overflow-hidden" />
               ) : (
@@ -649,8 +691,8 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
           {/* Bottom Reader Toolbar */}
           <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs font-semibold shrink-0 bg-opacity-95 backdrop-blur">
             <button
-              onClick={prevPage}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-md"
+              onClick={() => triggerPageTurn('prev')}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-md active:scale-95"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Previous Page</span>
@@ -664,8 +706,8 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
             </div>
 
             <button
-              onClick={nextPage}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-md"
+              onClick={() => triggerPageTurn('next')}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-md active:scale-95"
             >
               <span>Next Page</span>
               <ArrowRight className="w-4 h-4" />
