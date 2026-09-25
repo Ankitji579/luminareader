@@ -1,22 +1,19 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { 
   Upload, BookOpen, Sun, Moon, Book, ZoomIn, ZoomOut, 
   List, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2, 
-  Maximize, Minimize, Search, X, Type, ChevronDown, HelpCircle, RotateCcw,
-  Volume2, MoveVertical, MoveHorizontal, Compass
+  Search, X, Type, ChevronDown, HelpCircle, RotateCcw,
+  Volume2, MoveVertical, MoveHorizontal, Compass, Bookmark, Maximize2, Minimize2,
+  Share2, VolumeX, AlignLeft, Layers
 } from "lucide-react";
 import ePub, { Book as EpubBook, Rendition, NavItem } from "epubjs";
 import { GOOGLE_FONTS, FontOption } from "@/lib/fonts-data";
-
-interface DictionaryMeaning {
-  partOfSpeech: string;
-  definition: string;
-  example?: string;
-}
+import { lookupWordComprehensive, DictionaryResult } from "@/lib/dictionary-service";
 
 export default function ReaderWorkspace({ initialFormat }: { initialFormat?: string }) {
+  // File & Book States
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [fileType, setFileType] = useState<string>("");
@@ -28,33 +25,42 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   const [rendition, setRendition] = useState<Rendition | null>(null);
   const [toc, setToc] = useState<NavItem[]>([]);
   const [progress, setProgress] = useState(0);
+  const [currentCfi, setCurrentCfi] = useState<string | null>(null);
 
-  // Text Fallback states
+  // Text Document Fallback states
   const [textChapters, setTextChapters] = useState<{ title: string; content: string }[]>([]);
   const [currentTextChapterIndex, setCurrentTextChapterIndex] = useState(0);
 
-  // Customization State
+  // Customization & Typography States
   const [fontSize, setFontSize] = useState<number>(18);
   const [zoomScale, setZoomScale] = useState<number>(100);
   const [theme, setTheme] = useState<"light" | "sepia" | "dark" | "oled" | "forest">("light");
   const [selectedFont, setSelectedFont] = useState<FontOption>(GOOGLE_FONTS[0]);
   const [scrollMode, setScrollMode] = useState<"horizontal" | "vertical">("horizontal");
+  
+  // Font Selector Modal & Filtering
   const [showFontMenu, setShowFontMenu] = useState(false);
   const [fontSearchQuery, setFontSearchQuery] = useState("");
+  const [fontCategoryFilter, setFontCategoryFilter] = useState<string>("all");
+
+  // UI Drawers & Overlays
   const [showToc, setShowToc] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [pageFlipAnim, setPageFlipAnim] = useState<"next" | "prev" | null>(null);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   // Dictionary State
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
-  const [dictionaryWord, setDictionaryWord] = useState<string>("");
-  const [dictionaryMeanings, setDictionaryMeanings] = useState<DictionaryMeaning[]>([]);
+  const [dictionaryData, setDictionaryData] = useState<DictionaryResult | null>(null);
   const [dictionaryLoading, setDictionaryLoading] = useState(false);
   const [showDictionaryDrawer, setShowDictionaryDrawer] = useState(false);
   const [manualWordInput, setManualWordInput] = useState("");
 
   const viewerRef = useRef<HTMLDivElement>(null);
+  const readerContainerRef = useRef<HTMLDivElement>(null);
 
+  // Handle File Upload from Input
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];
     if (uploadedFile) {
@@ -62,6 +68,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     }
   };
 
+  // Handle Drag and Drop
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const droppedFile = e.dataTransfer.files?.[0];
@@ -70,6 +77,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     }
   };
 
+  // Process Document File
   const processFile = async (f: File) => {
     setLoading(true);
     setFile(f);
@@ -78,11 +86,11 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     setFileType(ext);
 
     if (rendition) {
-      rendition.destroy();
+      try { rendition.destroy(); } catch {}
       setRendition(null);
     }
     if (epubBook) {
-      epubBook.destroy();
+      try { epubBook.destroy(); } catch {}
       setEpubBook(null);
     }
 
@@ -105,7 +113,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         let currentChunk = "";
         for (let i = 0; i < paragraphs.length; i++) {
           currentChunk += paragraphs[i] + "\n\n";
-          if (currentChunk.length > 3000 || i === paragraphs.length - 1) {
+          if (currentChunk.length > 3500 || i === paragraphs.length - 1) {
             tempChapters.push({
               title: `Section ${tempChapters.length + 1}`,
               content: currentChunk.replace(/\n/g, '<br/>')
@@ -113,7 +121,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             currentChunk = "";
           }
         }
-        setTextChapters(tempChapters.length > 0 ? tempChapters : [{ title: "Document", content: text.slice(0, 50000) }]);
+        setTextChapters(tempChapters.length > 0 ? tempChapters : [{ title: "Document", content: text.slice(0, 60000) }]);
         setCurrentTextChapterIndex(0);
         setIsReading(true);
         setLoading(false);
@@ -121,7 +129,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     } catch (err) {
       console.error("Reader loading error:", err);
       const text = await f.text();
-      setTextChapters([{ title: f.name, content: text.replace(/\n/g, '<br/>').slice(0, 50000) }]);
+      setTextChapters([{ title: f.name, content: text.replace(/\n/g, '<br/>').slice(0, 60000) }]);
       setCurrentTextChapterIndex(0);
       setIsReading(true);
       setLoading(false);
@@ -130,27 +138,83 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
   // Helper to construct Google Font stylesheet URL
   const getGoogleFontHref = (googleName: string) => {
-    return `https://fonts.googleapis.com/css2?family=${googleName}:wght@400;600;700&display=swap`;
+    return `https://fonts.googleapis.com/css2?family=${googleName}:wght@300;400;500;600;700;800&display=swap`;
   };
 
-  // Render EpubJS rendition
+  // Dictionary Lookup Execution
+  const executeDictionaryLookup = useCallback(async (word: string) => {
+    const clean = word.toLowerCase().replace(/[^a-z]/g, '').trim();
+    if (!clean || clean.length < 2) return;
+
+    setSelectedWord(clean);
+    setDictionaryLoading(true);
+    try {
+      const result = await lookupWordComprehensive(clean);
+      setDictionaryData(result);
+    } catch (e) {
+      console.error("Dictionary lookup error:", e);
+    } finally {
+      setDictionaryLoading(false);
+    }
+  }, []);
+
+  // Web Speech Pronunciation Audio
+  const speakWord = (text: string) => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.88;
+      utterance.pitch = 1.0;
+      utterance.onstart = () => setIsPlayingAudio(true);
+      utterance.onend = () => setIsPlayingAudio(false);
+      utterance.onerror = () => setIsPlayingAudio(false);
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  // Kindle-Style Page Turn Trigger with smooth animation
+  const triggerPageTurn = useCallback((direction: 'next' | 'prev', rendInstance?: Rendition | null) => {
+    setPageFlipAnim(direction);
+    setTimeout(() => setPageFlipAnim(null), 240);
+
+    const r = rendInstance || rendition;
+    if (fileType === 'epub' && r) {
+      if (direction === 'next') {
+        r.next();
+      } else {
+        r.prev();
+      }
+    } else {
+      if (direction === 'next') {
+        setCurrentTextChapterIndex((prev) => Math.min(textChapters.length - 1, prev + 1));
+      } else {
+        setCurrentTextChapterIndex((prev) => Math.max(0, prev - 1));
+      }
+    }
+  }, [fileType, rendition, textChapters.length]);
+
+  // Render & Configure EpubJS Rendition
   useEffect(() => {
     if (isReading && fileType === 'epub' && epubBook && viewerRef.current) {
       viewerRef.current.innerHTML = "";
 
+      const isVertical = scrollMode === "vertical";
+
+      // Configure Rendition based on scrollMode
       const rend = epubBook.renderTo(viewerRef.current, {
         width: "100%",
         height: "100%",
         spread: "none",
-        flow: scrollMode === "horizontal" ? "paginated" : "scrolled-doc"
+        flow: isVertical ? "scrolled-doc" : "paginated",
+        manager: isVertical ? "continuous" : "default"
       });
 
-      // Register EpubJS content hooks for iframe styles & events
+      // Register EpubJS content hooks for iframe styles & event listeners
       rend.hooks.content.register((contents: any) => {
         const doc = contents.document;
         if (!doc) return;
 
-        // 1. Inject font stylesheet directly into iframe
+        // 1. Inject font stylesheet and typography overrides directly into iframe
         const fontHref = getGoogleFontHref(selectedFont.googleName);
         let fontStyleTag = doc.getElementById('lumina-custom-font');
         if (!fontStyleTag) {
@@ -163,32 +227,41 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
           * {
             font-family: ${selectedFont.family} !important;
           }
+          body {
+            font-size: ${fontSize}px !important;
+            line-height: 1.75 !important;
+            padding: ${isVertical ? '30px 40px 100px 40px' : '15px 35px'} !important;
+            box-sizing: border-box !important;
+            margin: 0 auto !important;
+            max-width: ${isVertical ? '820px' : '100%'} !important;
+            overflow-y: ${isVertical ? 'visible' : 'hidden'} !important;
+          }
           img, svg {
             max-width: 100% !important;
-            max-height: 70vh !important;
+            max-height: 75vh !important;
             width: auto !important;
             height: auto !important;
             object-fit: contain !important;
-            margin: 0 auto !important;
+            margin: 16px auto !important;
             display: block !important;
           }
-          body {
-            padding: 10px 40px !important;
-            box-sizing: border-box !important;
+          p {
+            margin-bottom: 1.25em !important;
+            text-align: justify !important;
           }
         `;
 
-        // 2. Clean inline SVG / IMG attributes
+        // 2. Clean inline SVG / IMG dimensions
         const svgs = doc.querySelectorAll('svg');
         svgs.forEach((svg: any) => {
           svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
           svg.style.maxWidth = '100%';
-          svg.style.maxHeight = '70vh';
+          svg.style.maxHeight = '75vh';
         });
         const imgs = doc.querySelectorAll('img');
         imgs.forEach((img: any) => {
           img.style.objectFit = 'contain';
-          img.style.maxHeight = '70vh';
+          img.style.maxHeight = '75vh';
           img.style.maxWidth = '100%';
         });
 
@@ -207,8 +280,8 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         const handleSelection = () => {
           const selection = contents.window.getSelection()?.toString() || "";
           const cleanText = selection.replace(/[^a-zA-Z]/g, '').trim();
-          if (cleanText && cleanText.length >= 2 && cleanText.length <= 30) {
-            lookupWord(cleanText);
+          if (cleanText && cleanText.length >= 2 && cleanText.length <= 32) {
+            executeDictionaryLookup(cleanText);
           }
         };
 
@@ -216,26 +289,34 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         doc.addEventListener('dblclick', handleSelection);
       });
 
-      rend.display();
+      // Display Rendition
+      if (currentCfi) {
+        rend.display(currentCfi);
+      } else {
+        rend.display();
+      }
 
       rend.on("relocated", (location: any) => {
-        if (location && location.start && epubBook.locations && epubBook.locations.length()) {
-          const prog = epubBook.locations.percentageFromCfi(location.start.cfi);
-          setProgress(Math.round(prog * 100));
+        if (location?.start) {
+          setCurrentCfi(location.start.cfi);
+          if (epubBook.locations && epubBook.locations.length()) {
+            const prog = epubBook.locations.percentageFromCfi(location.start.cfi);
+            setProgress(Math.round(prog * 100));
+          }
         }
       });
 
       epubBook.ready.then(() => {
         epubBook.locations.generate(1000).then(() => {
-          if (rend.location && rend.location.start) {
+          if (rend.location?.start) {
             const prog = epubBook.locations.percentageFromCfi(rend.location.start.cfi);
             setProgress(Math.round(prog * 100));
           }
         });
       });
 
-      // Keyboard Listener on Parent Window
-      const handleParentKeyDown = (e: KeyboardEvent) => {
+      // Keyboard Listener on Host Window
+      const handleHostKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
           triggerPageTurn('next', rend);
         } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
@@ -251,19 +332,20 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         }
       };
 
-      window.addEventListener('keydown', handleParentKeyDown);
+      window.addEventListener('keydown', handleHostKeyDown);
       window.addEventListener('resize', handleResize);
 
       setRendition(rend);
 
       return () => {
-        window.removeEventListener('keydown', handleParentKeyDown);
+        window.removeEventListener('keydown', handleHostKeyDown);
         window.removeEventListener('resize', handleResize);
+        try { rend.destroy(); } catch {}
       };
     }
-  }, [isReading, fileType, epubBook, scrollMode]);
+  }, [isReading, fileType, epubBook, scrollMode, executeDictionaryLookup, triggerPageTurn]);
 
-  // Handle Dynamic Font & Theme Updates inside iframe & parent
+  // Handle Dynamic Font & Theme Updates in Rendition
   useEffect(() => {
     if (rendition) {
       const fontHref = getGoogleFontHref(selectedFont.googleName);
@@ -275,13 +357,41 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         document.head.appendChild(link);
       }
 
+      // Query any rendered iframes to immediately re-inject font rules
+      if (viewerRef.current) {
+        const iframes = viewerRef.current.querySelectorAll('iframe');
+        iframes.forEach((iframe) => {
+          try {
+            const doc = iframe.contentDocument;
+            if (doc) {
+              let fontTag = doc.getElementById('lumina-custom-font');
+              if (!fontTag) {
+                fontTag = doc.createElement('style');
+                fontTag.id = 'lumina-custom-font';
+                doc.head.appendChild(fontTag);
+              }
+              fontTag.innerHTML = `
+                @import url('${fontHref}');
+                * {
+                  font-family: ${selectedFont.family} !important;
+                }
+                body {
+                  font-size: ${fontSize}px !important;
+                  line-height: 1.75 !important;
+                }
+              `;
+            }
+          } catch {}
+        });
+      }
+
       const themeCss = 
         theme === 'dark' 
           ? { body: { background: '#020617 !important', color: '#f8fafc !important' } }
           : theme === 'oled'
           ? { body: { background: '#000000 !important', color: '#e2e8f0 !important' } }
           : theme === 'forest'
-          ? { body: { background: '#0b2916 !important', color: '#e8f5e9 !important' } }
+          ? { body: { background: '#071f12 !important', color: '#d1fae5 !important' } }
           : theme === 'sepia'
           ? { body: { background: '#fbf0d9 !important', color: '#433422 !important' } }
           : { body: { background: '#ffffff !important', color: '#0f172a !important' } };
@@ -298,96 +408,35 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     }
   }, [theme, fontSize, selectedFont, rendition]);
 
-  // Kindle-Style Page Turn Animation Trigger
-  const triggerPageTurn = (direction: 'next' | 'prev', rendInstance?: Rendition | null) => {
-    setPageFlipAnim(direction);
-    setTimeout(() => setPageFlipAnim(null), 220);
-
-    const r = rendInstance || rendition;
-    if (fileType === 'epub' && r) {
-      if (direction === 'next') r.next();
-      else r.prev();
+  // Fullscreen Toggle
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      readerContainerRef.current?.requestFullscreen?.();
+      setIsFullscreen(true);
     } else {
-      if (direction === 'next') {
-        setCurrentTextChapterIndex((prev) => Math.min(textChapters.length - 1, prev + 1));
-      } else {
-        setCurrentTextChapterIndex((prev) => Math.max(0, prev - 1));
-      }
+      document.exitFullscreen?.();
+      setIsFullscreen(false);
     }
   };
 
-  // Robust Dictionary Lookup Function with Dual API Sources
-  const lookupWord = async (word: string) => {
-    const cleanWord = word.toLowerCase().replace(/[^a-z]/g, '').trim();
-    if (!cleanWord) return;
-
-    setSelectedWord(cleanWord);
-    setDictionaryWord(cleanWord);
-    setDictionaryLoading(true);
-    setDictionaryMeanings([]);
-
-    try {
-      // 1. Primary API: Free Dictionary API
-      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${cleanWord}`);
-      if (res.ok) {
-        const data = await res.json();
-        const meanings: DictionaryMeaning[] = [];
-        if (data[0]?.meanings) {
-          data[0].meanings.forEach((m: any) => {
-            if (m.definitions?.[0]?.definition) {
-              meanings.push({
-                partOfSpeech: m.partOfSpeech || 'definition',
-                definition: m.definitions[0].definition,
-                example: m.definitions[0].example
-              });
-            }
-          });
-        }
-        setDictionaryMeanings(meanings);
-      } else {
-        // 2. Secondary Fallback API: Datamuse Word Definitions API
-        const backupRes = await fetch(`https://api.datamuse.com/words?sp=${cleanWord}&md=d&max=1`);
-        if (backupRes.ok) {
-          const backupData = await backupRes.json();
-          if (backupData[0]?.defs) {
-            const backupMeanings = backupData[0].defs.map((defStr: string) => {
-              const parts = defStr.split('\t');
-              return {
-                partOfSpeech: parts[0] || 'meaning',
-                definition: parts[1] || defStr
-              };
-            });
-            setDictionaryMeanings(backupMeanings);
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Dictionary API error:", err);
-    } finally {
-      setDictionaryLoading(false);
-    }
-  };
-
-  // Audio Speech Pronunciation
-  const speakWord = (text: string) => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
+  // Demo Classic Book Loader
   const loadDemoBook = async () => {
     setLoading(true);
     setFileName("Sherlock_Holmes_Classic_Demo.txt");
     setFileType("txt");
     const demoContent1 = `Chapter 1: A Scandal in Bohemia
 
-To Sherlock Holmes she is always THE woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex. It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind. He was, I take it, the most perfect reasoning and observing machine that the world has seen, but as a lover he would have placed himself in a false position.`;
+To Sherlock Holmes she is always THE woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex. It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind. He was, I take it, the most perfect reasoning and observing machine that the world has seen, but as a lover he would have placed himself in a false position. He never spoke of the softer passions, save with a gibe and a sneer. They were admirable things for the observer—excellent for drawing the veil from men's motives and actions.`;
 
     const demoContent2 = `Chapter 2: The Red-Headed League
 
-I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last year and found him in deep conversation with a very stout, florid-faced, elderly gentleman with fiery red hair. With an apology for my intrusion, I was about to withdraw when Holmes pulled me abruptly into the room and closed the door behind me.`;
+I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last year and found him in deep conversation with a very stout, florid-faced, elderly gentleman with fiery red hair. With an apology for my intrusion, I was about to withdraw when Holmes pulled me abruptly into the room and closed the door behind me.
+
+"You could not have come at a better time, my dear Watson," he said cordially.
+"I was afraid that you were engaged."
+"So I am. Very much so."
+"Then I can wait in the next room."
+"Not at all. This gentleman, Mr. Wilson, has been my partner and helper in many of my most interesting cases, and I have no doubt that he will be of the utmost use to me in yours also."`;
 
     setTextChapters([
       { title: "Chapter 1: A Scandal in Bohemia", content: demoContent1.replace(/\n/g, '<br/>') },
@@ -398,6 +447,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
     setLoading(false);
   };
 
+  // Theme Class
   const getThemeClass = () => {
     switch (theme) {
       case "dark":
@@ -405,7 +455,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
       case "oled":
         return "bg-black text-slate-100";
       case "forest":
-        return "bg-[#0b2916] text-[#e8f5e9]";
+        return "bg-[#071f12] text-[#d1fae5]";
       case "sepia":
         return "bg-[#fbf0d9] text-[#433422]";
       default:
@@ -413,20 +463,27 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
     }
   };
 
-  const filteredFonts = GOOGLE_FONTS.filter((f) =>
-    f.name.toLowerCase().includes(fontSearchQuery.toLowerCase())
-  );
+  // Filtered Fonts
+  const filteredFonts = GOOGLE_FONTS.filter((f) => {
+    const matchesQuery = f.name.toLowerCase().includes(fontSearchQuery.toLowerCase());
+    const matchesCategory = fontCategoryFilter === "all" || f.category === fontCategoryFilter;
+    return matchesQuery && matchesCategory;
+  });
 
   return (
-    <div className={`w-full ${isReading ? 'fixed inset-0 z-50 bg-slate-950 p-0 overflow-hidden' : 'max-w-7xl mx-auto my-4 px-2 sm:px-4'}`}>
+    <div 
+      ref={readerContainerRef}
+      className={`w-full ${isReading ? 'fixed inset-0 z-50 bg-slate-950 p-0 overflow-hidden select-text' : 'max-w-7xl mx-auto my-4 px-2 sm:px-4'}`}
+    >
       {loading && (
         <div className="p-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 max-w-xl mx-auto my-12">
           <div className="w-14 h-14 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
           <h3 className="text-lg font-bold text-slate-900 dark:text-white">Opening E-Book Workspace...</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Loading chapters, typography & page layouts.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Loading chapters, 105+ typography engines & instant dictionary.</p>
         </div>
       )}
 
+      {/* Upload Screen */}
       {!isReading && !loading ? (
         <div
           onDragOver={(e) => e.preventDefault()}
@@ -475,100 +532,134 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-indigo-500 shrink-0" />
-                <span>Instant Dictionary & Audio Speech</span>
+                <span>100% Working Offline/Online Dictionary</span>
               </div>
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-amber-500 shrink-0" />
-                <span>Kindle Page Flip Effect & Zoom Controls</span>
+                <span>Kindle Flip, Vertical Scroll & 105+ Fonts</span>
               </div>
             </div>
           </div>
         </div>
       ) : isReading ? (
+        /* Fullscreen Reading Experience */
         <div className={`flex flex-col h-screen w-screen transition-colors ${getThemeClass()}`}>
-          {/* Reader Top Toolbar */}
-          <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs shrink-0 bg-opacity-95 backdrop-blur z-30">
-            <button
-              onClick={() => {
-                setIsReading(false);
-                if (rendition) rendition.destroy();
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Close Reader</span>
-            </button>
-
-            <div className="flex items-center gap-2 truncate max-w-xs sm:max-w-md font-semibold text-sm">
-              <Book className="w-4 h-4 text-indigo-500 shrink-0" />
-              <span className="truncate">{fileName}</span>
-            </div>
-
+          {/* Top Reading Toolbar */}
+          <div className="h-14 px-3 sm:px-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs shrink-0 bg-opacity-95 backdrop-blur z-30">
+            {/* Left Controls */}
             <div className="flex items-center gap-2">
-              {/* Vertical Scroll vs Horizontal Paginated Toggle */}
-              {fileType === 'epub' && (
-                <button
-                  onClick={() => setScrollMode(scrollMode === 'horizontal' ? 'vertical' : 'horizontal')}
-                  className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5"
-                  title="Toggle Page Flip vs Vertical Continuous Scroll"
-                >
-                  {scrollMode === 'horizontal' ? (
-                    <>
-                      <MoveHorizontal className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>Flip Pages</span>
-                    </>
-                  ) : (
-                    <>
-                      <MoveVertical className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>Vertical Scroll</span>
-                    </>
-                  )}
-                </button>
-              )}
-
-              {/* Toolbar Search / Dictionary Launcher */}
               <button
-                onClick={() => setShowDictionaryDrawer(!showDictionaryDrawer)}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 text-xs"
-                title="Search Dictionary"
+                onClick={() => {
+                  setIsReading(false);
+                  if (rendition) rendition.destroy();
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-semibold transition-colors"
+                title="Exit Reader"
               >
-                <Search className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Dictionary</span>
+                <ArrowLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Close</span>
               </button>
 
-              {/* 100+ Fonts Picker Dropdown */}
+              <div className="flex items-center gap-1.5 max-w-[140px] sm:max-w-xs font-semibold text-xs sm:text-sm truncate">
+                <Book className="w-4 h-4 text-indigo-500 shrink-0" />
+                <span className="truncate">{fileName}</span>
+              </div>
+            </div>
+
+            {/* Center / Right Toolbar Controls */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Vertical Scroll vs Horizontal Flip Mode */}
+              <button
+                onClick={() => setScrollMode(scrollMode === 'horizontal' ? 'vertical' : 'horizontal')}
+                className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                  scrollMode === 'vertical' 
+                    ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600 dark:text-emerald-400' 
+                    : 'border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+                title="Switch between Page Flip and Vertical Continuous Scroll"
+              >
+                {scrollMode === 'horizontal' ? (
+                  <>
+                    <MoveHorizontal className="w-3.5 h-3.5 text-indigo-500" />
+                    <span className="hidden md:inline">Flip Pages</span>
+                  </>
+                ) : (
+                  <>
+                    <MoveVertical className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="hidden md:inline">Vertical Scroll</span>
+                  </>
+                )}
+              </button>
+
+              {/* Dictionary Launcher Button */}
+              <button
+                onClick={() => setShowDictionaryDrawer(!showDictionaryDrawer)}
+                className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                  showDictionaryDrawer 
+                    ? 'bg-indigo-600 text-white border-indigo-600' 
+                    : 'border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+                title="Open Dictionary Lookup"
+              >
+                <Search className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="hidden sm:inline">Dictionary</span>
+              </button>
+
+              {/* 105+ Google Fonts Selector */}
               <div className="relative">
                 <button
                   onClick={() => setShowFontMenu(!showFontMenu)}
-                  className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5"
-                  title="Select Google Font"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5"
+                  title="Choose from 105+ Google Fonts"
                 >
                   <Type className="w-3.5 h-3.5 text-indigo-500" />
-                  <span className="truncate max-w-[100px]">{selectedFont.name}</span>
+                  <span className="truncate max-w-[70px] sm:max-w-[100px]">{selectedFont.name}</span>
                   <ChevronDown className="w-3 h-3 opacity-60" />
                 </button>
 
                 {showFontMenu && (
-                  <div className="absolute right-0 top-10 z-50 w-72 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-2">
-                    <div className="flex items-center justify-between border-b pb-2">
-                      <span className="font-bold text-xs">Choose Google Font</span>
+                  <div className="absolute right-0 top-11 z-50 w-80 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-2.5">
+                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                      <div>
+                        <span className="font-bold text-xs">105+ Google Fonts</span>
+                        <span className="text-[10px] text-slate-400 block">Select font to apply live</span>
+                      </div>
                       <button onClick={() => setShowFontMenu(false)} className="text-slate-400 hover:text-slate-600">
                         <X className="w-4 h-4" />
                       </button>
                     </div>
 
+                    {/* Font Category Filter Tabs */}
+                    <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[10px] font-medium no-scrollbar">
+                      {["all", "serif", "sans-serif", "dyslexic", "monospace", "script", "display"].map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => setFontCategoryFilter(cat)}
+                          className={`px-2 py-1 rounded-md capitalize shrink-0 transition-colors ${
+                            fontCategoryFilter === cat
+                              ? "bg-indigo-600 text-white font-bold"
+                              : "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300"
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Font Search Input */}
                     <div className="relative">
                       <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
                       <input
                         type="text"
-                        placeholder="Search fonts..."
+                        placeholder="Search font by name..."
                         value={fontSearchQuery}
                         onChange={(e) => setFontSearchQuery(e.target.value)}
                         className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-slate-100 dark:bg-slate-800 border-none focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
 
-                    <div className="max-h-60 overflow-y-auto space-y-1 pt-1 text-xs">
+                    {/* Font Cards List */}
+                    <div className="max-h-64 overflow-y-auto space-y-1 pt-1 text-xs">
                       {filteredFonts.map((font) => (
                         <button
                           key={font.name}
@@ -578,12 +669,16 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                           }}
                           className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between transition-colors ${
                             selectedFont.name === font.name
-                              ? "bg-indigo-600 text-white font-semibold"
+                              ? "bg-indigo-600 text-white font-semibold shadow"
                               : "hover:bg-slate-100 dark:hover:bg-slate-800"
                           }`}
                         >
-                          <span>{font.name}</span>
-                          <span className="text-[10px] opacity-60 uppercase">{font.category}</span>
+                          <span style={{ fontFamily: font.family }} className="text-sm">
+                            {font.name}
+                          </span>
+                          <span className="text-[9px] opacity-60 uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/10 dark:bg-white/10">
+                            {font.category}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -591,27 +686,27 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                 )}
               </div>
 
-              {/* Font Size */}
-              <button
-                onClick={() => setFontSize(Math.max(12, fontSize - 2))}
-                className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
-                title="Decrease Font Size"
-              >
-                <ZoomOut className="w-4 h-4" />
-              </button>
-
-              <span className="font-semibold text-xs min-w-[24px] text-center">{fontSize}px</span>
-
-              <button
-                onClick={() => setFontSize(Math.min(40, fontSize + 2))}
-                className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
-                title="Increase Font Size"
-              >
-                <ZoomIn className="w-4 h-4" />
-              </button>
+              {/* Font Size Decrement / Increment */}
+              <div className="flex items-center border border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setFontSize(Math.max(12, fontSize - 2))}
+                  className="px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs"
+                  title="Smaller Font"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span className="font-semibold text-xs px-1.5 min-w-[26px] text-center">{fontSize}</span>
+                <button
+                  onClick={() => setFontSize(Math.min(42, fontSize + 2))}
+                  className="px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs"
+                  title="Larger Font"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+              </div>
 
               {/* Page Zoom Control */}
-              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+              <div className="hidden lg:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
                 <span className="text-[11px] font-mono font-bold">{zoomScale}%</span>
                 <button
                   onClick={() => setZoomScale(Math.min(180, zoomScale + 10))}
@@ -638,10 +733,10 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                 )}
               </div>
 
-              {/* Theme Toggle */}
+              {/* Theme Cycle Selector */}
               <button
                 onClick={() => setTheme(theme === "light" ? "sepia" : theme === "sepia" ? "dark" : theme === "dark" ? "oled" : theme === "oled" ? "forest" : "light")}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 capitalize flex items-center gap-1"
+                className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 capitalize flex items-center gap-1.5"
                 title="Switch Theme"
               >
                 {theme === "light" && <Sun className="w-3.5 h-3.5 text-amber-500" />}
@@ -649,35 +744,51 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                 {theme === "dark" && <Moon className="w-3.5 h-3.5 text-indigo-400" />}
                 {theme === "oled" && <Moon className="w-3.5 h-3.5 text-slate-400" />}
                 {theme === "forest" && <Compass className="w-3.5 h-3.5 text-emerald-400" />}
-                <span>{theme}</span>
+                <span className="hidden md:inline">{theme}</span>
               </button>
 
+              {/* Fullscreen Toggle */}
               <button
-                onClick={() => setShowShortcuts(!showShortcuts)}
-                className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
-                title="Keyboard Shortcuts"
+                onClick={toggleFullscreen}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hidden sm:inline-flex"
+                title="Toggle Fullscreen"
               >
-                <HelpCircle className="w-4 h-4" />
+                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
               </button>
 
+              {/* TOC Drawer Toggle */}
               {fileType === 'epub' && (
                 <button
                   onClick={() => setShowToc(!showToc)}
-                  className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
                   title="Table of Contents"
                 >
                   <List className="w-4 h-4" />
                 </button>
               )}
+
+              {/* Keyboard Shortcuts Help */}
+              <button
+                onClick={() => setShowShortcuts(!showShortcuts)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hidden sm:inline-flex"
+                title="Keyboard Shortcuts"
+              >
+                <HelpCircle className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
-          {/* Reader Content Body */}
+          {/* Reader Main Content Body */}
           <div className="relative flex-1 flex overflow-hidden w-full h-full">
-            {/* TOC Drawer */}
+            {/* TOC Left Drawer */}
             {showToc && toc.length > 0 && (
-              <div className="w-72 border-r border-slate-200 dark:border-slate-800 p-4 space-y-2 bg-slate-50 dark:bg-slate-900 text-xs shrink-0 overflow-y-auto z-20">
-                <h4 className="font-bold text-sm mb-3">Table of Contents</h4>
+              <div className="w-72 border-r border-slate-200 dark:border-slate-800 p-4 space-y-2 bg-slate-50 dark:bg-slate-900 text-xs shrink-0 overflow-y-auto z-30 shadow-xl">
+                <div className="flex items-center justify-between border-b pb-2 mb-2">
+                  <h4 className="font-bold text-sm">Table of Contents</h4>
+                  <button onClick={() => setShowToc(false)} className="text-slate-400 hover:text-slate-600">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
                 {toc.map((item, idx) => (
                   <button
                     key={idx}
@@ -695,98 +806,133 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
               </div>
             )}
 
-            {/* Dictionary Drawer Launcher Modal */}
+            {/* Dictionary Right/Left Sidebar Drawer */}
             {showDictionaryDrawer && (
-              <div className="w-80 border-r border-slate-200 dark:border-slate-800 p-4 space-y-3 bg-slate-50 dark:bg-slate-900 text-xs shrink-0 overflow-y-auto z-20">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <span className="font-bold text-sm flex items-center gap-1.5">
-                    <Book className="w-4 h-4 text-indigo-500" />
-                    Dictionary Lookup
+              <div className="w-84 sm:w-96 border-r border-slate-200 dark:border-slate-800 p-4 space-y-3 bg-white dark:bg-slate-900 text-xs shrink-0 overflow-y-auto z-30 shadow-2xl">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
+                  <span className="font-bold text-sm flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
+                    <BookOpen className="w-4 h-4" />
+                    Dictionary & Lexicon
                   </span>
                   <button onClick={() => setShowDictionaryDrawer(false)} className="text-slate-400 hover:text-slate-600">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
+                {/* Word Search Input Bar */}
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    placeholder="Type word to define..."
+                    placeholder="Type any word to define..."
                     value={manualWordInput}
                     onChange={(e) => setManualWordInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') lookupWord(manualWordInput);
+                      if (e.key === 'Enter') executeDictionaryLookup(manualWordInput);
                     }}
-                    className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="flex-1 px-3 py-2 text-xs rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   <button
-                    onClick={() => lookupWord(manualWordInput)}
-                    className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-semibold text-xs"
+                    onClick={() => executeDictionaryLookup(manualWordInput)}
+                    className="px-3.5 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 active:scale-95 transition-transform"
                   >
-                    Look Up
+                    Lookup
                   </button>
                 </div>
 
+                {/* Dictionary Results Card */}
                 {dictionaryLoading ? (
-                  <p className="text-slate-500 py-2">Searching dictionary...</p>
-                ) : dictionaryMeanings.length > 0 ? (
+                  <div className="p-8 text-center space-y-2">
+                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-slate-500 text-xs">Consulting world lexicons...</p>
+                  </div>
+                ) : dictionaryData ? (
                   <div className="space-y-3 pt-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-base capitalize text-indigo-600 dark:text-indigo-400">{dictionaryWord}</span>
+                    {/* Header: Word & Audio Pronounce */}
+                    <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-950/40 p-3 rounded-2xl border border-indigo-100 dark:border-indigo-900/50">
+                      <div>
+                        <span className="font-extrabold text-lg capitalize text-slate-900 dark:text-white block">
+                          {dictionaryData.word}
+                        </span>
+                        <span className="font-mono text-xs text-indigo-600 dark:text-indigo-400">
+                          {dictionaryData.phonetic}
+                        </span>
+                      </div>
                       <button
-                        onClick={() => speakWord(dictionaryWord)}
-                        className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 hover:scale-105 transition-transform"
-                        title="Pronounce Audio"
+                        onClick={() => speakWord(dictionaryData.word)}
+                        className={`p-2.5 rounded-xl bg-indigo-600 text-white shadow-md hover:bg-indigo-700 transition-all ${
+                          isPlayingAudio ? 'animate-pulse ring-4 ring-indigo-300' : ''
+                        }`}
+                        title="Pronounce with Audio Speech"
                       >
                         <Volume2 className="w-4 h-4" />
                       </button>
                     </div>
-                    {dictionaryMeanings.map((m, idx) => (
-                      <div key={idx} className="space-y-1 border-b border-slate-200 dark:border-slate-800 pb-2.5 last:border-none">
-                        <span className="font-semibold italic text-indigo-600 dark:text-indigo-400 text-[11px]">{m.partOfSpeech}</span>
-                        <p className="text-slate-700 dark:text-slate-300 leading-relaxed">{m.definition}</p>
-                        {m.example && <p className="text-slate-400 italic text-[11px]">&quot;{m.example}&quot;</p>}
-                      </div>
-                    ))}
+
+                    {/* Meanings List */}
+                    <div className="space-y-2.5 pt-1">
+                      {dictionaryData.meanings.map((m, idx) => (
+                        <div key={idx} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-1.5">
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 uppercase tracking-wide">
+                            {m.partOfSpeech}
+                          </span>
+                          <p className="text-slate-800 dark:text-slate-200 leading-relaxed text-xs">
+                            {m.definition}
+                          </p>
+                          {m.example && (
+                            <p className="text-slate-500 dark:text-slate-400 italic text-[11px] pl-2 border-l-2 border-indigo-400">
+                              &ldquo;{m.example}&rdquo;
+                            </p>
+                          )}
+                          {m.synonyms && m.synonyms.length > 0 && (
+                            <div className="flex flex-wrap gap-1 pt-1">
+                              <span className="text-[10px] text-slate-400">Synonyms:</span>
+                              {m.synonyms.map((s, sIdx) => (
+                                <span key={sIdx} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                                  {s}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="pt-2 text-[10px] text-slate-400 flex items-center justify-between">
+                      <span>Source: {dictionaryData.source}</span>
+                      <span>100% Offline Ready</span>
+                    </div>
                   </div>
-                ) : dictionaryWord ? (
-                  <p className="text-slate-500 py-2">No dictionary definition found for &quot;{dictionaryWord}&quot;.</p>
                 ) : (
-                  <p className="text-slate-400 text-[11px] leading-relaxed pt-2">
-                    💡 Select or double-click any word inside the e-book text, or type a word above to view definitions and audio speech pronunciation.
-                  </p>
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-slate-500 space-y-2">
+                    <p className="font-semibold text-xs text-slate-700 dark:text-slate-300">
+                      💡 How to use Instant Dictionary:
+                    </p>
+                    <ul className="list-disc pl-4 space-y-1 text-[11px] leading-relaxed">
+                      <li>Double-click or highlight any word inside the e-book text to view instant definition and hear pronunciation.</li>
+                      <li>Or enter any word in the search box above to lookup meanings across 100,000+ words.</li>
+                    </ul>
+                  </div>
                 )}
               </div>
             )}
 
-            {/* Keyboard Shortcuts Modal */}
-            {showShortcuts && (
-              <div className="absolute top-4 left-4 z-40 w-72 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-3 text-xs">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <span className="font-bold text-sm">Keyboard Controls</span>
-                  <button onClick={() => setShowShortcuts(false)} className="text-slate-400 hover:text-slate-600">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">→</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Space</kbd> <span>Next Page</span></div>
-                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">←</kbd> <span>Previous Page</span></div>
-                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Double-Click Word</kbd> <span>Dictionary</span></div>
-                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Esc</kbd> <span>Close Reader</span></div>
-                </div>
-              </div>
-            )}
-
-            {/* Selection Floating Dictionary Popup Modal */}
+            {/* Selection Floating Card Popup (When user highlights or double clicks a word) */}
             {selectedWord && !showDictionaryDrawer && (
-              <div className="absolute top-4 right-6 z-40 w-80 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-3 text-xs">
-                <div className="flex items-center justify-between border-b pb-2">
+              <div className="absolute top-4 right-6 z-40 w-80 sm:w-88 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-2.5 text-xs animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-indigo-600 dark:text-indigo-400 capitalize">{dictionaryWord}</span>
+                    <span className="font-extrabold text-sm capitalize text-indigo-600 dark:text-indigo-400">
+                      {dictionaryData?.word || selectedWord}
+                    </span>
+                    <span className="font-mono text-[11px] text-slate-400">
+                      {dictionaryData?.phonetic}
+                    </span>
                     <button
-                      onClick={() => speakWord(dictionaryWord)}
-                      className="p-1 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 hover:scale-105 transition-transform"
-                      title="Pronounce Audio"
+                      onClick={() => speakWord(dictionaryData?.word || selectedWord)}
+                      className={`p-1 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 hover:scale-105 transition-transform ${
+                        isPlayingAudio ? 'animate-pulse' : ''
+                      }`}
+                      title="Pronounce Word"
                     >
                       <Volume2 className="w-3.5 h-3.5" />
                     </button>
@@ -797,74 +943,180 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                 </div>
 
                 {dictionaryLoading ? (
-                  <p className="text-slate-500 py-2">Searching dictionary definition...</p>
-                ) : dictionaryMeanings.length > 0 ? (
-                  <div className="space-y-2 max-h-52 overflow-y-auto">
-                    {dictionaryMeanings.map((m, idx) => (
+                  <p className="text-slate-500 py-2">Consulting dictionary...</p>
+                ) : dictionaryData ? (
+                  <div className="space-y-2 max-h-56 overflow-y-auto">
+                    {dictionaryData.meanings.map((m, idx) => (
                       <div key={idx} className="space-y-1 border-b border-slate-100 dark:border-slate-800 pb-2 last:border-none">
                         <span className="font-semibold text-indigo-600 dark:text-indigo-400 italic text-[11px]">{m.partOfSpeech}</span>
                         <p className="text-slate-700 dark:text-slate-300 leading-relaxed">{m.definition}</p>
-                        {m.example && <p className="text-slate-400 italic text-[11px]">&quot;{m.example}&quot;</p>}
+                        {m.example && <p className="text-slate-400 italic text-[11px]">&ldquo;{m.example}&rdquo;</p>}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-slate-500 py-2">No dictionary definition found for &quot;{dictionaryWord}&quot;.</p>
+                  <p className="text-slate-500 py-1">Searching dictionary definition...</p>
                 )}
               </div>
             )}
 
-            {/* Reader Viewport Container with Kindle Page Turn Flip Animation & Zoom */}
-            <div 
-              className={`flex-1 w-full h-full p-2 sm:p-6 flex items-center justify-center overflow-hidden transition-all duration-200 ${
-                pageFlipAnim === 'next' 
-                  ? '-translate-x-6 opacity-40' 
-                  : pageFlipAnim === 'prev' 
-                  ? 'translate-x-6 opacity-40' 
-                  : 'translate-x-0 opacity-100'
-              }`}
-              style={{ transform: `scale(${zoomScale / 100})`, transformOrigin: 'center center' }}
-            >
-              {fileType === 'epub' ? (
-                <div ref={viewerRef} className="w-full h-full flex items-center justify-center overflow-hidden" />
-              ) : (
-                <div className="w-full h-full max-w-4xl mx-auto overflow-y-auto p-4 sm:p-8 space-y-6">
-                  <h3 className="text-xl font-bold border-b pb-3 opacity-90">
-                    {textChapters[currentTextChapterIndex]?.title}
-                  </h3>
-                  <div
-                    className="leading-relaxed space-y-4"
-                    style={{ fontSize: `${fontSize}px`, fontFamily: selectedFont.family }}
-                    dangerouslySetInnerHTML={{ __html: textChapters[currentTextChapterIndex]?.content || "" }}
-                  />
+            {/* Keyboard Shortcuts Overlay Modal */}
+            {showShortcuts && (
+              <div className="absolute top-4 left-4 z-40 w-72 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-3 text-xs">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <span className="font-bold text-sm">Keyboard Shortcuts</span>
+                  <button onClick={() => setShowShortcuts(false)} className="text-slate-400 hover:text-slate-600">
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">→</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Space</kbd> <span>Next Page</span></div>
+                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">←</kbd> <span>Previous Page</span></div>
+                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Double-Click Word</kbd> <span>Instant Dictionary</span></div>
+                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Esc</kbd> <span>Close Reader</span></div>
+                </div>
+              </div>
+            )}
+
+            {/* Reader Viewport Area */}
+            <div 
+              className={`flex-1 w-full h-full relative flex items-center justify-center ${
+                scrollMode === 'vertical' ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden'
+              }`}
+            >
+              {/* Left / Right Click Zones for Smooth Kindle Page Turn in Paginated Mode */}
+              {scrollMode === 'horizontal' && (
+                <>
+                  <div 
+                    onClick={() => triggerPageTurn('prev')}
+                    className="absolute left-0 top-0 bottom-0 w-16 sm:w-24 z-20 cursor-pointer flex items-center justify-start pl-2 opacity-0 hover:opacity-100 transition-opacity bg-gradient-to-r from-black/5 to-transparent dark:from-white/5"
+                    title="Previous Page (←)"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-slate-900/40 text-white flex items-center justify-center shadow-lg backdrop-blur">
+                      <ArrowLeft className="w-4 h-4" />
+                    </div>
+                  </div>
+
+                  <div 
+                    onClick={() => triggerPageTurn('next')}
+                    className="absolute right-0 top-0 bottom-0 w-16 sm:w-24 z-20 cursor-pointer flex items-center justify-end pr-2 opacity-0 hover:opacity-100 transition-opacity bg-gradient-to-l from-black/5 to-transparent dark:from-white/5"
+                    title="Next Page (→)"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-slate-900/40 text-white flex items-center justify-center shadow-lg backdrop-blur">
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </>
               )}
+
+              {/* Kindle Page Flip Animated Container */}
+              <div 
+                className={`w-full h-full flex items-center justify-center transition-transform duration-200 ease-out ${
+                  pageFlipAnim === 'next' 
+                    ? '-translate-x-4 scale-[0.985] opacity-75' 
+                    : pageFlipAnim === 'prev' 
+                    ? 'translate-x-4 scale-[0.985] opacity-75' 
+                    : 'translate-x-0 scale-100 opacity-100'
+                }`}
+                style={{
+                  transform: `scale(${zoomScale / 100})`,
+                  transformOrigin: 'center center'
+                }}
+              >
+                {fileType === 'epub' ? (
+                  <div 
+                    ref={viewerRef} 
+                    className={`w-full h-full ${
+                      scrollMode === 'vertical' 
+                        ? 'overflow-y-auto overflow-x-hidden max-w-4xl mx-auto p-4 sm:p-8' 
+                        : 'overflow-hidden flex items-center justify-center'
+                    }`}
+                  />
+                ) : (
+                  /* Text / Document Reader Container */
+                  <div 
+                    className={`w-full h-full max-w-4xl mx-auto p-4 sm:p-8 ${
+                      scrollMode === 'vertical' ? 'overflow-y-auto space-y-12' : 'overflow-hidden flex flex-col justify-center'
+                    }`}
+                  >
+                    {scrollMode === 'vertical' ? (
+                      textChapters.map((ch, idx) => (
+                        <div key={idx} className="space-y-4 border-b border-slate-200 dark:border-slate-800 pb-10">
+                          <h3 className="text-xl font-extrabold pb-2 border-b opacity-85">
+                            {ch.title}
+                          </h3>
+                          <div
+                            className="leading-relaxed space-y-4 select-text"
+                            style={{ fontSize: `${fontSize}px`, fontFamily: selectedFont.family }}
+                            dangerouslySetInnerHTML={{ __html: ch.content }}
+                            onMouseUp={() => {
+                              const sel = window.getSelection()?.toString() || "";
+                              const clean = sel.replace(/[^a-zA-Z]/g, '').trim();
+                              if (clean && clean.length >= 2) executeDictionaryLookup(clean);
+                            }}
+                          />
+                        </div>
+                      ))
+                    ) : (
+                      <div className="space-y-6 max-h-full overflow-y-auto py-4">
+                        <h3 className="text-xl font-bold border-b pb-3 opacity-90">
+                          {textChapters[currentTextChapterIndex]?.title}
+                        </h3>
+                        <div
+                          className="leading-relaxed space-y-4 select-text"
+                          style={{ fontSize: `${fontSize}px`, fontFamily: selectedFont.family }}
+                          dangerouslySetInnerHTML={{ __html: textChapters[currentTextChapterIndex]?.content || "" }}
+                          onMouseUp={() => {
+                            const sel = window.getSelection()?.toString() || "";
+                            const clean = sel.replace(/[^a-zA-Z]/g, '').trim();
+                            if (clean && clean.length >= 2) executeDictionaryLookup(clean);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Bottom Reader Toolbar */}
-          <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs font-semibold shrink-0 bg-opacity-95 backdrop-blur">
+          {/* Bottom Reader Navigation Toolbar */}
+          <div className="h-12 px-4 sm:px-8 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs font-semibold shrink-0 bg-opacity-95 backdrop-blur z-20">
             <button
               onClick={() => triggerPageTurn('prev')}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-md active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 transition-all shadow"
+              title="Previous Page"
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Previous Page</span>
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Previous</span>
             </button>
 
             <div className="flex items-center gap-3">
-              <span className="text-slate-600 dark:text-slate-400">Progress: {progress > 0 ? `${progress}%` : "Reading"}</span>
-              <div className="w-32 h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                <div className="h-full bg-indigo-600 transition-all duration-300" style={{ width: `${Math.max(5, progress)}%` }} />
+              <span className="text-slate-600 dark:text-slate-400">
+                {fileType === 'epub' 
+                  ? `Progress: ${progress > 0 ? `${progress}%` : "Reading"}`
+                  : `Section ${currentTextChapterIndex + 1} of ${textChapters.length}`
+                }
+              </span>
+              <div className="w-24 sm:w-36 h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                <div 
+                  className="h-full bg-indigo-600 transition-all duration-300 rounded-full" 
+                  style={{ 
+                    width: fileType === 'epub' 
+                      ? `${Math.max(5, progress)}%` 
+                      : `${Math.round(((currentTextChapterIndex + 1) / Math.max(1, textChapters.length)) * 100)}%` 
+                  }} 
+                />
               </div>
             </div>
 
             <button
               onClick={() => triggerPageTurn('next')}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-md active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 transition-all shadow"
+              title="Next Page"
             >
-              <span>Next Page</span>
-              <ArrowRight className="w-4 h-4" />
+              <span className="hidden sm:inline">Next</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
