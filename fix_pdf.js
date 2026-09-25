@@ -1,9 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+const fs = require('fs');
+
+const code = `import React, { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Safe worker loading for Next.js (bypasses cross-origin worker CORS issues)
 if (typeof window !== "undefined") {
-  const workerUrl = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+  const workerUrl = \`https://cdnjs.cloudflare.com/ajax/libs/pdf.js/\${pdfjsLib.version}/pdf.worker.min.js\`;
   pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 }
 
@@ -20,8 +22,8 @@ export default function PdfViewer({ file, zoomScale }: { file: File | Blob; zoom
         
         // We use a blob proxy for the worker to avoid strict CORS block on Web Workers from CDNs
         if (typeof window !== "undefined") {
-          const workerUrl = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-          const blob = new Blob([`importScripts('${workerUrl}');`], { type: 'text/javascript' });
+          const workerUrl = \`https://cdnjs.cloudflare.com/ajax/libs/pdf.js/\${pdfjsLib.version}/pdf.worker.min.js\`;
+          const blob = new Blob([\`importScripts('\${workerUrl}');\`], { type: 'text/javascript' });
           pdfjsLib.GlobalWorkerOptions.workerPort = new Worker(URL.createObjectURL(blob));
         }
 
@@ -63,7 +65,7 @@ export default function PdfViewer({ file, zoomScale }: { file: File | Blob; zoom
   return (
     <div className="flex flex-col items-center gap-4 w-full pb-32">
       {Array.from(new Array(numPages), (el, index) => (
-        <PdfPage key={`page-${index + 1}`} pdf={pdf} pageNumber={index + 1} zoomScale={zoomScale} />
+        <PdfPage key={\`page-\${index + 1}\`} pdf={pdf} pageNumber={index + 1} zoomScale={zoomScale} />
       ))}
     </div>
   );
@@ -94,7 +96,7 @@ function PdfPage({ pdf, pageNumber, zoomScale }: { pdf: any; pageNumber: number;
         await page.render(renderContext).promise;
         setRendered(true);
       } catch (e) {
-        console.error(`Error rendering page ${pageNumber}:`, e);
+        console.error(\`Error rendering page \${pageNumber}:\`, e);
       }
     };
 
@@ -121,4 +123,6 @@ function PdfPage({ pdf, pageNumber, zoomScale }: { pdf: any; pageNumber: number;
       <canvas ref={canvasRef} className="block w-full h-auto" />
     </div>
   );
-}
+}`;
+
+fs.writeFileSync('components/reader/PdfViewer.tsx', code);
