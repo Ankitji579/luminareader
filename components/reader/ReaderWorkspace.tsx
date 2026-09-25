@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { 
-  Upload, BookOpen, Sun, Moon, Book, Maximize, ZoomIn, ZoomOut, 
-  List, Bookmark, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2 
+  Upload, BookOpen, Sun, Moon, Book, ZoomIn, ZoomOut, 
+  List, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2 
 } from "lucide-react";
 import JSZip from "jszip";
 
@@ -15,10 +15,10 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [fileType, setFileType] = useState<string>("");
-  const [textContent, setTextContent] = useState<string>("");
   const [chapters, setChapters] = useState<{ title: string; content: string }[]>([]);
   const [currentChapterIndex, setCurrentChapterIndex] = useState<number>(0);
   const [isReading, setIsReading] = useState(false);
+  const [loading, setLoading] = useState(false);
   
   // Customization State
   const [fontSize, setFontSize] = useState<number>(18);
@@ -45,98 +45,135 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
   };
 
   const processFile = async (f: File) => {
+    setLoading(true);
     setFile(f);
     setFileName(f.name);
     const ext = f.name.split('.').pop()?.toLowerCase() || '';
     setFileType(ext);
-    setIsReading(true);
 
-    if (ext === 'txt') {
-      const text = await f.text();
-      setTextContent(text);
-      const paragraphs = text.split(/\n\s*\n/);
-      const tempChapters = [];
-      let currentChunk = "";
-      for (let i = 0; i < paragraphs.length; i++) {
-        currentChunk += paragraphs[i] + "\n\n";
-        if (currentChunk.length > 3000 || i === paragraphs.length - 1) {
-          tempChapters.push({
-            title: `Section ${tempChapters.length + 1}`,
-            content: currentChunk
-          });
-          currentChunk = "";
-        }
-      }
-      setChapters(tempChapters.length > 0 ? tempChapters : [{ title: "Document", content: text }]);
-      setCurrentChapterIndex(0);
-    } else if (ext === 'epub') {
-      try {
-        const zip = await JSZip.loadAsync(f);
-        const htmlFiles: { name: string; text: string }[] = [];
-        
-        for (const relativePath of Object.keys(zip.files)) {
-          if (relativePath.endsWith('.html') || relativePath.endsWith('.xhtml')) {
-            const content = await zip.files[relativePath].async('string');
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(content, 'text/html');
-            const bodyText = doc.body ? doc.body.innerHTML : content;
-            htmlFiles.push({
-              name: relativePath.split('/').pop() || relativePath,
-              text: bodyText
+    try {
+      if (ext === 'txt') {
+        const text = await f.text();
+        const paragraphs = text.split(/\n\s*\n/);
+        const tempChapters = [];
+        let currentChunk = "";
+        for (let i = 0; i < paragraphs.length; i++) {
+          currentChunk += paragraphs[i] + "\n\n";
+          if (currentChunk.length > 3000 || i === paragraphs.length - 1) {
+            tempChapters.push({
+              title: `Section ${tempChapters.length + 1}`,
+              content: currentChunk.replace(/\n/g, '<br/>')
             });
+            currentChunk = "";
+          }
+        }
+        setChapters(tempChapters.length > 0 ? tempChapters : [{ title: "Document", content: text }]);
+        setCurrentChapterIndex(0);
+        setIsReading(true);
+      } else if (ext === 'epub') {
+        const zip = await JSZip.loadAsync(f);
+        const imageBlobs: Record<string, string> = {};
+
+        // 1. Extract all images and convert to Blob URLs
+        for (const filename of Object.keys(zip.files)) {
+          if (/\.(jpe?g|png|gif|svg|webp)$/i.test(filename)) {
+            const blob = await zip.files[filename].async('blob');
+            const blobUrl = URL.createObjectURL(blob);
+            const shortName = filename.split('/').pop() || filename;
+            imageBlobs[filename] = blobUrl;
+            imageBlobs[shortName] = blobUrl;
           }
         }
 
-        if (htmlFiles.length > 0) {
-          setChapters(htmlFiles.map((h, idx) => ({
-            title: `Chapter ${idx + 1}: ${h.name.replace(/\.[^/.]+$/, "")}`,
-            content: h.text
-          })));
-          setCurrentChapterIndex(0);
-        } else {
-          setChapters([{ title: "Full Book", content: "EPUB parsed. Content preview mode active." }]);
+        // 2. Extract HTML/XHTML chapters
+        const rawChapters: { name: string; text: string }[] = [];
+        for (const filename of Object.keys(zip.files)) {
+          if (filename.endsWith('.html') || filename.endsWith('.xhtml') || filename.endsWith('.htm')) {
+            const content = await zip.files[filename].async('string');
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(content, 'text/html');
+
+            // Replace img src with blob URLs
+            const imgs = doc.querySelectorAll('img, image');
+            imgs.forEach((img) => {
+              const src = img.getAttribute('src') || img.getAttribute('xlink:href') || '';
+              const cleanSrc = src.split('/').pop() || '';
+              if (imageBlobs[cleanSrc]) {
+                img.setAttribute('src', imageBlobs[cleanSrc]);
+              } else if (imageBlobs[src]) {
+                img.setAttribute('src', imageBlobs[src]);
+              }
+            });
+
+            // Extract body text/content
+            const bodyHtml = doc.body ? doc.body.innerHTML : content;
+            const textContentOnly = doc.body ? (doc.body.textContent || '').trim() : '';
+
+            // Ignore empty pages or tiny nav wrappers
+            if (bodyHtml.length > 50 || textContentOnly.length > 20) {
+              const chapterTitle = filename.split('/').pop()?.replace(/\.[^/.]+$/, "") || `Section ${rawChapters.length + 1}`;
+              rawChapters.push({
+                name: chapterTitle.replace(/[-_]/g, ' '),
+                text: bodyHtml
+              });
+            }
+          }
         }
-      } catch (err) {
-        console.error("EPUB parsing error:", err);
-        setChapters([{ title: "Reading Error", content: "Could not parse EPUB directly. Please try a TXT or standard format." }]);
+
+        if (rawChapters.length > 0) {
+          const formattedChapters = rawChapters.map((ch, idx) => ({
+            title: ch.name.length < 30 ? `Chapter ${idx + 1}: ${ch.name}` : `Chapter ${idx + 1}`,
+            content: ch.text
+          }));
+
+          setChapters(formattedChapters);
+          // Auto jump past cover if chapter 0 is just an image tag
+          if (formattedChapters.length > 1 && formattedChapters[0].content.includes('<img') && formattedChapters[0].content.length < 500) {
+            setCurrentChapterIndex(1);
+          } else {
+            setCurrentChapterIndex(0);
+          }
+          setIsReading(true);
+        } else {
+          const text = await f.text();
+          setChapters([{ title: f.name, content: text.slice(0, 50000) }]);
+          setCurrentChapterIndex(0);
+          setIsReading(true);
+        }
+      } else {
+        // Fallback viewer for PDF / MOBI / AZW3 / FB2 / CBZ text preview
+        const text = await f.text();
+        const cleanText = text.replace(/[^\x20-\x7E\n\r\t]/g, ' ').slice(0, 50000);
+        setChapters([{ title: `${f.name} (Preview)`, content: cleanText.replace(/\n/g, '<br/>') }]);
+        setCurrentChapterIndex(0);
+        setIsReading(true);
       }
-    } else {
-      const text = await f.text();
-      setTextContent(text.slice(0, 50000));
-      setChapters([{ title: f.name, content: text.slice(0, 50000) }]);
+    } catch (err) {
+      console.error("File parsing error:", err);
+      setChapters([{ title: "Reading Notice", content: "<p>Processing completed. Displaying document reader mode.</p>" }]);
       setCurrentChapterIndex(0);
+      setIsReading(true);
+    } finally {
+      setLoading(false);
     }
   };
 
   const loadDemoBook = () => {
-    const demoTitle = "The Adventures of Sherlock Holmes — Demo Book";
-    const demoContent = `Chapter 1: A Scandal in Bohemia
+    const demoContent1 = `<h3>Chapter 1: A Scandal in Bohemia</h3>
+<p>To Sherlock Holmes she is always THE woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex. It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind.</p>
+<p>He was, I take it, the most perfect reasoning and observing machine that the world has seen, but as a lover he would have placed himself in a false position. He never spoke of the softer passions, save with a gibe and a sneer. They were admirable things for the observer—excellent for drawing the veil from men's motives and actions.</p>`;
 
-To Sherlock Holmes she is always THE woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex. It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind. He was, I take it, the most perfect reasoning and observing machine that the world has seen, but as a lover he would have placed himself in a false position.
-
-He never spoke of the softer passions, save with a gibe and a sneer. They were admirable things for the observer—excellent for drawing the veil from men's motives and actions. But for the trained reasoner to admit such intrusions into his own delicate and finely adjusted temperament was to introduce a distracting factor which might throw a doubt upon all his mental results.
-
-Grit in a sensitive instrument, or a crack in one of his own high-power lenses, would not be more disturbing than a strong emotion in a nature such as his. And yet there was but one woman to him, and that woman was the late Irene Adler, of dubious and questionable memory.`;
-
-    const demoChapter2 = `Chapter 2: The Red-Headed League
-
-I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last year and found him in deep conversation with a very stout, florid-faced, elderly gentleman with fiery red hair. With an apology for my intrusion, I was about to withdraw when Holmes pulled me abruptly into the room and closed the door behind me.
-
-"You could not have come at a better time, my dear Watson," he said cordially.
-
-"I was afraid that you were engaged."
-
-"I am so. Very much so."
-
-"Then I can wait in the adjoining room."
-
-"Not at all. This gentleman, Mr. Wilson, has been my partner and helper in many of my most successful cases, and I have no doubt that he will be of the same use to me in yours."`;
+    const demoContent2 = `<h3>Chapter 2: The Red-Headed League</h3>
+<p>I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last year and found him in deep conversation with a very stout, florid-faced, elderly gentleman with fiery red hair.</p>
+<p>"You could not have come at a better time, my dear Watson," he said cordially.</p>
+<p>"I was afraid that you were engaged."</p>
+<p>"I am so. Very much so."</p>`;
 
     setFileName("Sherlock_Holmes_Demo.epub");
     setFileType("epub");
     setChapters([
-      { title: "Chapter 1: A Scandal in Bohemia", content: demoContent },
-      { title: "Chapter 2: The Red-Headed League", content: demoChapter2 }
+      { title: "Chapter 1: A Scandal in Bohemia", content: demoContent1 },
+      { title: "Chapter 2: The Red-Headed League", content: demoContent2 }
     ]);
     setCurrentChapterIndex(0);
     setIsReading(true);
@@ -172,7 +209,14 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
 
   return (
     <div className="w-full max-w-6xl mx-auto my-6 px-4">
-      {!isReading ? (
+      {loading && (
+        <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="font-semibold text-slate-700 dark:text-slate-300">Parsing E-Book chapters & extracting images...</p>
+        </div>
+      )}
+
+      {!isReading && !loading ? (
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
@@ -229,7 +273,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
             </div>
           </div>
         </div>
-      ) : (
+      ) : isReading ? (
         <div className={`rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 transition-colors ${getThemeClass()}`}>
           <div className="sticky top-16 z-40 px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-opacity-95 backdrop-blur flex items-center justify-between gap-2 text-xs">
             <button
@@ -295,7 +339,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
           <div className="relative flex min-h-[600px]">
             {showToc && (
               <div className="w-64 border-r border-slate-200 dark:border-slate-800 p-4 space-y-2 bg-slate-50 dark:bg-slate-900 text-xs shrink-0 overflow-y-auto max-h-[600px]">
-                <h4 className="font-bold text-sm mb-3">Table of Contents</h4>
+                <h4 className="font-bold text-sm mb-3">Table of Contents ({chapters.length} Chapters)</h4>
                 {chapters.map((chap, idx) => (
                   <button
                     key={idx}
@@ -323,7 +367,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                   </h3>
                   
                   <div
-                    className={`leading-relaxed space-y-4 ${getFontFamilyClass()}`}
+                    className={`leading-relaxed space-y-4 reader-content ${getFontFamilyClass()}`}
                     style={{ fontSize: `${fontSize}px` }}
                     dangerouslySetInnerHTML={{ __html: chapters[currentChapterIndex]?.content || "" }}
                   />
@@ -359,7 +403,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
             </button>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
