@@ -1191,7 +1191,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   return (
     <div
       ref={readerContainerRef}
-      className={`w-full ${isReading ? "fixed inset-0 z-50 p-0 overflow-hidden select-text" : "max-w-7xl mx-auto my-4 px-2 sm:px-4"}`}
+      className={`w-full ${isReading ? "fixed inset-0 z-[100] p-0 overflow-hidden select-text" : "max-w-7xl mx-auto my-4 px-2 sm:px-4"}`}
       style={isReading ? { background: T.bg, color: T.text } : undefined}
     >
       {loading && (

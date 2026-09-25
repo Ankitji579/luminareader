@@ -14,7 +14,7 @@ export default function HomePage() {
       
 
       {/* Main Hero & Workspace */}
-      <main className="flex-1 flex flex-col items-center justify-center w-full px-4 pt-12 pb-12 relative z-10">
+      <main className="flex-1 flex flex-col items-center justify-center w-full px-4 pt-12 pb-12 relative">
         
         <div className="text-center space-y-4 mb-8">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-semibold tracking-wide uppercase mb-4 animate-fade-in">
