@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { 
   Upload, BookOpen, Sun, Moon, Book, ZoomIn, ZoomOut, 
   List, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2, 
-  Maximize, Minimize, Search, X, Type, ChevronDown, HelpCircle, RotateCcw 
+  Maximize, Minimize, Search, X, Type, ChevronDown, HelpCircle, RotateCcw,
+  Volume2, MoveVertical, MoveHorizontal, Compass
 } from "lucide-react";
 import ePub, { Book as EpubBook, Rendition, NavItem } from "epubjs";
 import { GOOGLE_FONTS, FontOption } from "@/lib/fonts-data";
@@ -35,19 +36,22 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   // Customization State
   const [fontSize, setFontSize] = useState<number>(18);
   const [zoomScale, setZoomScale] = useState<number>(100);
-  const [theme, setTheme] = useState<"light" | "sepia" | "dark" | "oled">("light");
+  const [theme, setTheme] = useState<"light" | "sepia" | "dark" | "oled" | "forest">("light");
   const [selectedFont, setSelectedFont] = useState<FontOption>(GOOGLE_FONTS[0]);
+  const [scrollMode, setScrollMode] = useState<"horizontal" | "vertical">("horizontal");
   const [showFontMenu, setShowFontMenu] = useState(false);
   const [fontSearchQuery, setFontSearchQuery] = useState("");
   const [showToc, setShowToc] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [pageFlipAnim, setPageFlipAnim] = useState<"next" | "prev" | null>(null);
 
-  // Dictionary Popup State
+  // Dictionary State
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [dictionaryWord, setDictionaryWord] = useState<string>("");
   const [dictionaryMeanings, setDictionaryMeanings] = useState<DictionaryMeaning[]>([]);
   const [dictionaryLoading, setDictionaryLoading] = useState(false);
+  const [showDictionaryDrawer, setShowDictionaryDrawer] = useState(false);
+  const [manualWordInput, setManualWordInput] = useState("");
 
   const viewerRef = useRef<HTMLDivElement>(null);
 
@@ -138,7 +142,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         width: "100%",
         height: "100%",
         spread: "none",
-        flow: "paginated"
+        flow: scrollMode === "horizontal" ? "paginated" : "scrolled-doc"
       });
 
       // Register EpubJS content hooks for iframe styles & events
@@ -199,14 +203,17 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
           }
         });
 
-        // 4. Attach Mouseup / Selection Listener INSIDE the iframe document
-        doc.addEventListener('mouseup', () => {
+        // 4. Attach Selection & Double-Click Dictionary Listener INSIDE the iframe document
+        const handleSelection = () => {
           const selection = contents.window.getSelection()?.toString() || "";
           const cleanText = selection.replace(/[^a-zA-Z]/g, '').trim();
           if (cleanText && cleanText.length >= 2 && cleanText.length <= 30) {
             lookupWord(cleanText);
           }
-        });
+        };
+
+        doc.addEventListener('mouseup', handleSelection);
+        doc.addEventListener('dblclick', handleSelection);
       });
 
       rend.display();
@@ -254,7 +261,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         window.removeEventListener('resize', handleResize);
       };
     }
-  }, [isReading, fileType, epubBook]);
+  }, [isReading, fileType, epubBook, scrollMode]);
 
   // Handle Dynamic Font & Theme Updates inside iframe & parent
   useEffect(() => {
@@ -273,6 +280,8 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
           ? { body: { background: '#020617 !important', color: '#f8fafc !important' } }
           : theme === 'oled'
           ? { body: { background: '#000000 !important', color: '#e2e8f0 !important' } }
+          : theme === 'forest'
+          ? { body: { background: '#0b2916 !important', color: '#e8f5e9 !important' } }
           : theme === 'sepia'
           ? { body: { background: '#fbf0d9 !important', color: '#433422 !important' } }
           : { body: { background: '#ffffff !important', color: '#0f172a !important' } };
@@ -292,7 +301,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   // Kindle-Style Page Turn Animation Trigger
   const triggerPageTurn = (direction: 'next' | 'prev', rendInstance?: Rendition | null) => {
     setPageFlipAnim(direction);
-    setTimeout(() => setPageFlipAnim(null), 250);
+    setTimeout(() => setPageFlipAnim(null), 220);
 
     const r = rendInstance || rendition;
     if (fileType === 'epub' && r) {
@@ -359,6 +368,15 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     }
   };
 
+  // Audio Speech Pronunciation
+  const speakWord = (text: string) => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
   const loadDemoBook = async () => {
     setLoading(true);
     setFileName("Sherlock_Holmes_Classic_Demo.txt");
@@ -386,6 +404,8 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
         return "bg-slate-950 text-slate-100";
       case "oled":
         return "bg-black text-slate-100";
+      case "forest":
+        return "bg-[#0b2916] text-[#e8f5e9]";
       case "sepia":
         return "bg-[#fbf0d9] text-[#433422]";
       default:
@@ -455,11 +475,11 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-indigo-500 shrink-0" />
-                <span>Instant Dictionary & 100+ Google Fonts</span>
+                <span>Instant Dictionary & Audio Speech</span>
               </div>
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-amber-500 shrink-0" />
-                <span>Kindle Page Turn Effect & Zoom Controls</span>
+                <span>Kindle Page Flip Effect & Zoom Controls</span>
               </div>
             </div>
           </div>
@@ -485,6 +505,37 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Vertical Scroll vs Horizontal Paginated Toggle */}
+              {fileType === 'epub' && (
+                <button
+                  onClick={() => setScrollMode(scrollMode === 'horizontal' ? 'vertical' : 'horizontal')}
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5"
+                  title="Toggle Page Flip vs Vertical Continuous Scroll"
+                >
+                  {scrollMode === 'horizontal' ? (
+                    <>
+                      <MoveHorizontal className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Flip Pages</span>
+                    </>
+                  ) : (
+                    <>
+                      <MoveVertical className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>Vertical Scroll</span>
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* Toolbar Search / Dictionary Launcher */}
+              <button
+                onClick={() => setShowDictionaryDrawer(!showDictionaryDrawer)}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 text-xs"
+                title="Search Dictionary"
+              >
+                <Search className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Dictionary</span>
+              </button>
+
               {/* 100+ Fonts Picker Dropdown */}
               <div className="relative">
                 <button
@@ -589,7 +640,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
 
               {/* Theme Toggle */}
               <button
-                onClick={() => setTheme(theme === "light" ? "sepia" : theme === "sepia" ? "dark" : theme === "dark" ? "oled" : "light")}
+                onClick={() => setTheme(theme === "light" ? "sepia" : theme === "sepia" ? "dark" : theme === "dark" ? "oled" : theme === "oled" ? "forest" : "light")}
                 className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 capitalize flex items-center gap-1"
                 title="Switch Theme"
               >
@@ -597,6 +648,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                 {theme === "sepia" && <Book className="w-3.5 h-3.5 text-amber-700" />}
                 {theme === "dark" && <Moon className="w-3.5 h-3.5 text-indigo-400" />}
                 {theme === "oled" && <Moon className="w-3.5 h-3.5 text-slate-400" />}
+                {theme === "forest" && <Compass className="w-3.5 h-3.5 text-emerald-400" />}
                 <span>{theme}</span>
               </button>
 
@@ -643,6 +695,70 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
               </div>
             )}
 
+            {/* Dictionary Drawer Launcher Modal */}
+            {showDictionaryDrawer && (
+              <div className="w-80 border-r border-slate-200 dark:border-slate-800 p-4 space-y-3 bg-slate-50 dark:bg-slate-900 text-xs shrink-0 overflow-y-auto z-20">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <span className="font-bold text-sm flex items-center gap-1.5">
+                    <Book className="w-4 h-4 text-indigo-500" />
+                    Dictionary Lookup
+                  </span>
+                  <button onClick={() => setShowDictionaryDrawer(false)} className="text-slate-400 hover:text-slate-600">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Type word to define..."
+                    value={manualWordInput}
+                    onChange={(e) => setManualWordInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') lookupWord(manualWordInput);
+                    }}
+                    className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <button
+                    onClick={() => lookupWord(manualWordInput)}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-semibold text-xs"
+                  >
+                    Look Up
+                  </button>
+                </div>
+
+                {dictionaryLoading ? (
+                  <p className="text-slate-500 py-2">Searching dictionary...</p>
+                ) : dictionaryMeanings.length > 0 ? (
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-base capitalize text-indigo-600 dark:text-indigo-400">{dictionaryWord}</span>
+                      <button
+                        onClick={() => speakWord(dictionaryWord)}
+                        className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 hover:scale-105 transition-transform"
+                        title="Pronounce Audio"
+                      >
+                        <Volume2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {dictionaryMeanings.map((m, idx) => (
+                      <div key={idx} className="space-y-1 border-b border-slate-200 dark:border-slate-800 pb-2.5 last:border-none">
+                        <span className="font-semibold italic text-indigo-600 dark:text-indigo-400 text-[11px]">{m.partOfSpeech}</span>
+                        <p className="text-slate-700 dark:text-slate-300 leading-relaxed">{m.definition}</p>
+                        {m.example && <p className="text-slate-400 italic text-[11px]">&quot;{m.example}&quot;</p>}
+                      </div>
+                    ))}
+                  </div>
+                ) : dictionaryWord ? (
+                  <p className="text-slate-500 py-2">No dictionary definition found for &quot;{dictionaryWord}&quot;.</p>
+                ) : (
+                  <p className="text-slate-400 text-[11px] leading-relaxed pt-2">
+                    💡 Select or double-click any word inside the e-book text, or type a word above to view definitions and audio speech pronunciation.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Keyboard Shortcuts Modal */}
             {showShortcuts && (
               <div className="absolute top-4 left-4 z-40 w-72 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-3 text-xs">
@@ -655,19 +771,25 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                 <div className="space-y-2">
                   <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">→</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Space</kbd> <span>Next Page</span></div>
                   <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">←</kbd> <span>Previous Page</span></div>
-                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Highlight Word</kbd> <span>Dictionary</span></div>
+                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Double-Click Word</kbd> <span>Dictionary</span></div>
                   <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Esc</kbd> <span>Close Reader</span></div>
                 </div>
               </div>
             )}
 
-            {/* Dictionary Popup Modal */}
-            {selectedWord && (
+            {/* Selection Floating Dictionary Popup Modal */}
+            {selectedWord && !showDictionaryDrawer && (
               <div className="absolute top-4 right-6 z-40 w-80 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-3 text-xs">
                 <div className="flex items-center justify-between border-b pb-2">
-                  <div className="flex items-center gap-1.5 font-bold text-sm text-indigo-600 dark:text-indigo-400 capitalize">
-                    <Book className="w-4 h-4" />
-                    <span>{dictionaryWord}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-indigo-600 dark:text-indigo-400 capitalize">{dictionaryWord}</span>
+                    <button
+                      onClick={() => speakWord(dictionaryWord)}
+                      className="p-1 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 hover:scale-105 transition-transform"
+                      title="Pronounce Audio"
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                   <button onClick={() => setSelectedWord(null)} className="p-1 text-slate-400 hover:text-slate-600">
                     <X className="w-4 h-4" />
@@ -696,9 +818,9 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
             <div 
               className={`flex-1 w-full h-full p-2 sm:p-6 flex items-center justify-center overflow-hidden transition-all duration-200 ${
                 pageFlipAnim === 'next' 
-                  ? '-translate-x-4 opacity-60' 
+                  ? '-translate-x-6 opacity-40' 
                   : pageFlipAnim === 'prev' 
-                  ? 'translate-x-4 opacity-60' 
+                  ? 'translate-x-6 opacity-40' 
                   : 'translate-x-0 opacity-100'
               }`}
               style={{ transform: `scale(${zoomScale / 100})`, transformOrigin: 'center center' }}

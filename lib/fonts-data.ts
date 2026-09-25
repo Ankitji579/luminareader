@@ -5,6 +5,8 @@ export interface FontOption {
   category: "serif" | "sans-serif" | "monospace" | "dyslexic";
 }
 
+export const DATABASE_NAME = "100+ Google Fonts Database for LuminaReader";
+
 export const GOOGLE_FONTS: FontOption[] = [
   // --- SERIF (Book Classics) ---
   { name: "Merriweather", googleName: "Merriweather", family: "'Merriweather', serif", category: "serif" },
@@ -28,6 +30,7 @@ export const GOOGLE_FONTS: FontOption[] = [
   { name: "Newsreader", googleName: "Newsreader", family: "'Newsreader', serif", category: "serif" },
   { name: "Vollkorn", googleName: "Vollkorn", family: "'Vollkorn', serif", category: "serif" },
   { name: "Literata", googleName: "Literata", family: "'Literata', serif", category: "serif" },
+  { name: "Goudy Bookletter 1911", googleName: "Goudy+Bookletter+1911", family: "'Goudy Bookletter 1911', serif", category: "serif" },
 
   // --- SANS-SERIF (Modern Clean) ---
   { name: "Inter", googleName: "Inter", family: "'Inter', sans-serif", category: "sans-serif" },
@@ -48,8 +51,11 @@ export const GOOGLE_FONTS: FontOption[] = [
   { name: "Jost", googleName: "Jost", family: "'Jost', sans-serif", category: "sans-serif" },
   { name: "Cabin", googleName: "Cabin", family: "'Cabin', sans-serif", category: "sans-serif" },
   { name: "PT Sans", googleName: "PT+Sans", family: "'PT Sans', sans-serif", category: "sans-serif" },
+  { name: "Karla", googleName: "Karla", family: "'Karla', sans-serif", category: "sans-serif" },
+  { name: "Mulish", googleName: "Mulish", family: "'Mulish', sans-serif", category: "sans-serif" },
+  { name: "Barlow", googleName: "Barlow", family: "'Barlow', sans-serif", category: "sans-serif" },
 
-  // --- DYSLEXIC & ACCESSIBILITY ---
+  // --- DYSLEXIC & ACCESSIBILITY FONTS ---
   { name: "Atkinson Hyperlegible", googleName: "Atkinson+Hyperlegible", family: "'Atkinson Hyperlegible', sans-serif", category: "dyslexic" },
   { name: "Lexend", googleName: "Lexend", family: "'Lexend', sans-serif", category: "dyslexic" },
   { name: "Lexend Deca", googleName: "Lexend+Deca", family: "'Lexend Deca', sans-serif", category: "dyslexic" },
