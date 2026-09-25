@@ -37,7 +37,7 @@ export default function HomePage() {
           </p>
         </div>
 
-        <div className="w-full animate-fade-in-up delay-200">
+        <div className="w-full animate-fade-in delay-200">
           <ErrorBoundary><ReaderWorkspace /></ErrorBoundary>
         </div>
 
