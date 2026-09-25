@@ -12,7 +12,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme as useNextTheme } from "next-themes";
 
 import localforage from "localforage";
-import { Clock, Trash2, Library, Save } from "lucide-react";
+import { Clock, Trash2, Library, Save, Timer, Hourglass } from "lucide-react";
 import {
   Upload, BookOpen, Sun, Moon, Book, ZoomIn, ZoomOut,
   List, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2,
@@ -444,6 +444,46 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const [isHighlightMode, setIsHighlightMode] = useState(false); // NEW: Dedicated highlighter mode
   const [isEraserMode, setIsEraserMode] = useState(false); // NEW: Dedicated eraser mode
+
+  // Reading Stats
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [readingTime, setReadingTime] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(new Date()), 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (bookTitle && typeof window !== "undefined") {
+      const savedTime = localStorage.getItem(`lumina_time_${bookTitle}`);
+      if (savedTime) setReadingTime(parseInt(savedTime, 10));
+    }
+  }, [bookTitle]);
+
+  useEffect(() => {
+    if (!isReading || !bookTitle) return;
+    const interval = setInterval(() => {
+      setReadingTime(prev => {
+        const next = prev + 1;
+        if (next % 5 === 0) localStorage.setItem(`lumina_time_${bookTitle}`, next.toString());
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isReading, bookTitle]);
+
+  const formatCurrentTime = (date: Date) => {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+  const formatReadingTime = (seconds: number) => {
+    if (seconds < 60) return `${seconds}s`;
+    const m = Math.floor(seconds / 60) % 60;
+    const h = Math.floor(seconds / 3600);
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  };
+
 
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1876,17 +1916,23 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                 <ArrowLeft className="w-3.5 h-3.5" /><span className="hidden sm:inline">Previous</span>
               </button>
 
-              <div className="flex items-center gap-2" style={{ color: T.subtext }}>
-                {scrollMode === "vertical" ? (
-                  <span>{verticalProgress}% through book</span>
-                ) : (
-                  <span>Chapter {currentChapterIndex + 1} / {Math.max(1, chapters.length)}</span>
-                )}
-                {isCurrentPageBookmarked && (
-                  <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style={{ background: T.panelAccent + "30", color: T.panelAccent }}>
-                    <BookmarkCheck className="w-3 h-3" /> Bookmarked
-                  </span>
-                )}
+              <div className="flex flex-col items-center justify-center gap-1" style={{ color: T.subtext }}>
+                <div className="flex items-center gap-2 text-xs sm:text-sm font-medium">
+                  {scrollMode === "vertical" ? (
+                    <span>{verticalProgress}% through book</span>
+                  ) : (
+                    <span>Chapter {currentChapterIndex + 1} / {Math.max(1, chapters.length)}</span>
+                  )}
+                  {isCurrentPageBookmarked && (
+                    <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style={{ background: T.panelAccent + "30", color: T.panelAccent }}>
+                      <BookmarkCheck className="w-3 h-3" /> Bookmarked
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 text-[10px] opacity-75 font-medium tracking-wide">
+                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatCurrentTime(currentTime)}</span>
+                  <span className="flex items-center gap-1"><Timer className="w-3 h-3" /> {formatReadingTime(readingTime)} read</span>
+                </div>
               </div>
 
               <button onClick={() => triggerPageTurn("next")} disabled={currentChapterIndex >= chapters.length - 1} className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl active:scale-95 transition-all shadow disabled:opacity-40 disabled:pointer-events-none" style={{ background: T.panelAccent, color: T.panelAccentText }} title="Next Page">
