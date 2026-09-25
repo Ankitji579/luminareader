@@ -329,11 +329,14 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   // Highlighter
   const [activeHighlightColor, setActiveHighlightColor] = useState(HIGHLIGHT_COLORS[0]);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
+  const [isHighlightMode, setIsHighlightMode] = useState(false); // NEW: Dedicated highlighter mode
 
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   // Save text selection range so we can restore it after state updates
   const savedRangeRef = useRef<Range | null>(null);
+  // Store persistent user highlights
+  const customHighlightsRef = useRef<{ id: string, range: Range, colorId: string }[]>([]);
 
   // Short alias for current theme config
   const T = THEMES[theme];
@@ -685,69 +688,98 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   // Progress to show in bottom bar
   const displayProgress = scrollMode === "vertical" ? verticalProgress : horizontalProgress;
 
+  // ─── PERMANENT HIGHLIGHTER SYSTEM (CSS Custom Highlights) ────────────────
+  
+  const renderCSSHighlights = useCallback(() => {
+    if (typeof CSS === "undefined" || !("highlights" in CSS)) return;
+    
+    // Group ranges by colorId
+    const groups: Record<string, Range[]> = {};
+    HIGHLIGHT_COLORS.forEach(c => groups[c.id] = []);
+
+    customHighlightsRef.current.forEach(h => {
+      if (groups[h.colorId]) groups[h.colorId].push(h.range);
+    });
+
+    // Update global CSS highlights registry
+    HIGHLIGHT_COLORS.forEach(c => {
+      const highlightName = `lumina-hl-${c.id}`;
+      try {
+        (CSS as any).highlights.delete(highlightName);
+        if (groups[c.id].length > 0) {
+          const highlight = new (window as any).Highlight(...groups[c.id]);
+          (CSS as any).highlights.set(highlightName, highlight);
+        }
+      } catch (e) {
+        console.error("CSS Highlights error", e);
+      }
+    });
+  }, []);
+
+  const toggleHighlight = useCallback((range: Range, color: typeof HIGHLIGHT_COLORS[0]) => {
+    // Check if the user selected an existing highlight to toggle it off/re-color
+    const existingIdx = customHighlightsRef.current.findIndex(h => {
+      return h.range.toString().trim() === range.toString().trim() && 
+             h.range.commonAncestorContainer === range.commonAncestorContainer;
+    });
+
+    if (existingIdx >= 0) {
+      const existing = customHighlightsRef.current[existingIdx];
+      if (existing.colorId === color.id) {
+        // Same color -> Remove it (de-highlight)
+        customHighlightsRef.current.splice(existingIdx, 1);
+      } else {
+        // Different color -> Replace color
+        customHighlightsRef.current[existingIdx].colorId = color.id;
+      }
+    } else {
+      // Add new highlight
+      customHighlightsRef.current.push({ id: Date.now().toString(), range, colorId: color.id });
+    }
+
+    renderCSSHighlights();
+  }, [renderCSSHighlights]);
+
+
   // ─── MOUSE SELECTION HANDLER ───────────────────────────────────────────────
 
   const handleTextMouseUp = (e: React.MouseEvent) => {
     const selection = window.getSelection();
-    const sel = selection?.toString() || "";
-    const word = sel.trim().split(/\s+/)[0]; // Only take FIRST word of selection
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
+    
+    const selStr = selection.toString().trim();
+    if (!selStr) return;
+    
+    const range = selection.getRangeAt(0).cloneRange();
+
+    // ── HIGHLIGHTER MODE ──
+    if (isHighlightMode) {
+      if (typeof CSS !== "undefined" && "highlights" in CSS) {
+        // Modern approach: Native Highlight API
+        toggleHighlight(range, activeHighlightColor);
+      } else {
+        // Fallback for older browsers
+        try {
+          document.designMode = "on";
+          document.execCommand("backColor", false, activeHighlightColor.bg);
+          document.execCommand("HiliteColor", false, activeHighlightColor.bg);
+          document.designMode = "off";
+        } catch (e) {}
+      }
+      selection.removeAllRanges();
+      return; // Skip dictionary lookup completely!
+    }
+
+    // ── DICTIONARY MODE ──
+    const word = selStr.split(/\s+/)[0]; // Only take FIRST word of selection
     const clean = word.replace(/[^a-zA-Z]/g, "").trim();
     if (clean && clean.length >= 2) {
-      // ── Save the selection range BEFORE React state update collapses it ──
-      if (selection && selection.rangeCount > 0) {
-        savedRangeRef.current = selection.getRangeAt(0).cloneRange();
-      }
+      // Save the selection range BEFORE React state update collapses it
+      savedRangeRef.current = range;
       const winH = window.innerHeight;
       const y = e.clientY;
       executeBubbleLookup(clean, y > winH * 0.55);
     }
-  };
-
-  // ─── APPLY HIGHLIGHT ──────────────────────────────────────────────────────
-  // Re-applies the saved range, wraps it in a <mark> span with chosen color
-
-  const applyHighlight = (e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-
-    const range = savedRangeRef.current;
-    if (!range) return;
-
-    // Re-apply the saved range to the live selection
-    const sel = window.getSelection();
-    if (sel) {
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
-
-    try {
-      // Temporarily enable design mode to use native browser highlighting
-      // This safely handles cross-boundary selections and complex DOM structures
-      document.designMode = "on";
-      document.execCommand("backColor", false, activeHighlightColor.bg);
-      document.execCommand("HiliteColor", false, activeHighlightColor.bg);
-      document.designMode = "off";
-    } catch (err) {
-      console.warn("execCommand failed, attempting fallback", err);
-      try {
-        const mark = document.createElement("mark");
-        mark.style.backgroundColor = activeHighlightColor.bg;
-        mark.style.borderRadius = "3px";
-        mark.style.padding = "0 2px";
-        mark.style.boxShadow = `0 0 0 1px ${activeHighlightColor.border}40`;
-        mark.style.color = "inherit";
-        range.surroundContents(mark);
-      } catch (err2) {
-        console.error("Highlighter failed completely", err2);
-      }
-    }
-
-    // Clear selection after highlighting
-    if (sel) sel.removeAllRanges();
-    savedRangeRef.current = null;
-    setSelectedWord(null);
   };
 
   // ─── STYLE HELPERS ─────────────────────────────────────────────────────────
@@ -872,28 +904,40 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                 )}
               </div>
 
-              {/* Highlighter Color Picker */}
-              <div className="relative">
-                <button onClick={() => setShowHighlightPicker(!showHighlightPicker)} className="px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1" style={showHighlightPicker ? btnActiveStyle : btnStyle} title="Choose Highlight Color">
-                  <Highlighter className="w-4 h-4" style={{ color: activeHighlightColor.border }} />
-                  <ChevronDown className="w-3 h-3 opacity-60" />
+              {/* Highlighter Tool */}
+              <div className="flex items-center rounded-lg overflow-hidden" style={{ border: `1px solid ${T.btnBorder}`, background: T.btnBg }}>
+                {/* Mode Toggle Button */}
+                <button 
+                  onClick={() => setIsHighlightMode(!isHighlightMode)} 
+                  className="px-2.5 py-1.5 flex items-center gap-1.5 text-xs font-semibold transition-colors" 
+                  style={isHighlightMode ? { background: activeHighlightColor.bg, color: T.panelText } : { background: "transparent", color: T.btnText }} 
+                  title={isHighlightMode ? "Highlighter Mode ON - Drag to highlight text" : "Turn On Highlighter Mode"}
+                >
+                  <Highlighter className="w-3.5 h-3.5" style={!isHighlightMode ? { color: activeHighlightColor.border } : {}} />
+                  <span className="hidden md:inline text-[10px] uppercase tracking-wider">{isHighlightMode ? "Highlighting" : "Highlight"}</span>
                 </button>
-                {showHighlightPicker && (
-                  <div className="absolute right-0 top-11 z-50 w-56 p-3 rounded-2xl shadow-2xl space-y-2" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
-                    <div className="flex items-center justify-between pb-2" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
-                      <span className="font-bold text-xs">Highlighter Color</span>
-                      <button onClick={() => setShowHighlightPicker(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
+                {/* Color Picker Dropdown */}
+                <div className="relative border-l" style={{ borderColor: T.btnBorder }}>
+                  <button onClick={() => setShowHighlightPicker(!showHighlightPicker)} className="px-1.5 py-1.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors h-full flex items-center">
+                    <ChevronDown className="w-3 h-3" style={{ color: T.btnText }} />
+                  </button>
+                  {showHighlightPicker && (
+                    <div className="absolute right-0 top-11 z-50 w-56 p-3 rounded-2xl shadow-2xl space-y-2" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
+                      <div className="flex items-center justify-between pb-2" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
+                        <span className="font-bold text-xs">Highlighter Color</span>
+                        <button onClick={() => setShowHighlightPicker(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        {HIGHLIGHT_COLORS.map(color => (
+                          <button key={color.id} onClick={() => { setActiveHighlightColor(color); setIsHighlightMode(true); setShowHighlightPicker(false); }} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105" style={{ background: color.bg, color: T.text, border: `1px solid ${color.border}`, opacity: activeHighlightColor.id === color.id ? 1 : 0.6 }}>
+                            <span className="w-3 h-3 rounded-full" style={{ background: color.border }} />
+                            {color.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 pt-1">
-                      {HIGHLIGHT_COLORS.map(color => (
-                        <button key={color.id} onClick={() => { setActiveHighlightColor(color); setShowHighlightPicker(false); }} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105" style={{ background: color.bg, color: T.text, border: `1px solid ${color.border}`, opacity: activeHighlightColor.id === color.id ? 1 : 0.6 }}>
-                          <span className="w-3 h-3 rounded-full" style={{ background: color.border }} />
-                          {color.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* Font Selector */}
@@ -1058,13 +1102,6 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                     <span className="font-mono text-[11px]" style={{ color: T.panelSubtext }}>{dictionaryData?.phonetic}</span>
                     <button onClick={() => speakWord(dictionaryData?.word || selectedWord)} className="p-1 rounded transition-transform hover:scale-105" style={{ background: T.panelItemBg, color: T.panelAccent }} title="Pronounce">
                       <Volume2 className={`w-3.5 h-3.5 ${isPlayingAudio ? "animate-pulse" : ""}`} />
-                    </button>
-                    {/* HIGHLIGHT BUTTON */}
-                    <button 
-                      onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                      onClick={applyHighlight} 
-                      className="p-1 rounded transition-transform hover:scale-105 ml-1 flex items-center gap-1 px-1.5 text-[10px] font-bold" style={{ background: activeHighlightColor.bg, color: T.text, border: `1px solid ${activeHighlightColor.border}` }} title="Highlight Text">
-                      <Highlighter className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Highlight</span>
                     </button>
                   </div>
                   <button onClick={closeDictionaryBubble} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
@@ -1315,6 +1352,12 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
               background-color: ${T.panelAccent}50;
               color: ${T.text};
             }
+            ::highlight(lumina-hl-yellow) { background-color: rgba(255, 236, 61, 0.55); color: inherit; }
+            ::highlight(lumina-hl-green) { background-color: rgba(74, 222, 128, 0.45); color: inherit; }
+            ::highlight(lumina-hl-pink) { background-color: rgba(249, 115, 148, 0.45); color: inherit; }
+            ::highlight(lumina-hl-blue) { background-color: rgba(96, 165, 250, 0.45); color: inherit; }
+            ::highlight(lumina-hl-purple) { background-color: rgba(167, 139, 250, 0.45); color: inherit; }
+            ::highlight(lumina-hl-orange) { background-color: rgba(251, 146, 60, 0.45); color: inherit; }
           `}</style>
         </div>
       ) : null}
