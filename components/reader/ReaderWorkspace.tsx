@@ -1,16 +1,564 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { 
-  Upload, BookOpen, Sun, Moon, Book, ZoomIn, ZoomOut, 
-  List, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2, 
+import {
+  Upload, BookOpen, Sun, Moon, Book, ZoomIn, ZoomOut,
+  List, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2,
   Search, X, Type, ChevronDown, HelpCircle, RotateCcw,
   Volume2, MoveVertical, MoveHorizontal, Compass, Maximize2, Minimize2,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Palette,
 } from "lucide-react";
 import { parseEpubArchive, ParsedBook, ParsedChapter, TocItem } from "@/lib/epub-parser";
 import { GOOGLE_FONTS, FontOption } from "@/lib/fonts-data";
 import { lookupWordComprehensive, DictionaryResult } from "@/lib/dictionary-service";
+
+// ─── THEME SYSTEM ──────────────────────────────────────────────────────────────
+
+export type ThemeName =
+  | "light"
+  | "sepia"
+  | "dark"
+  | "oled"
+  | "forest"
+  | "nord"
+  | "solarized"
+  | "gruvbox"
+  | "catppuccin"
+  | "rosepine"
+  | "dracula"
+  | "tokyonight"
+  | "amber"
+  | "midnight"
+  | "highcontrast"
+  | "paper";
+
+interface ThemeConfig {
+  name: string;
+  emoji: string;
+  // Reader surface
+  bg: string;
+  text: string;
+  subtext: string;
+  // Toolbar / chrome
+  toolbarBg: string;
+  toolbarBorder: string;
+  toolbarText: string;
+  // Buttons in toolbar
+  btnBg: string;
+  btnText: string;
+  btnBorder: string;
+  btnHoverBg: string;
+  btnActiveBg: string;
+  btnActiveText: string;
+  // Dictionary / bubble panel
+  panelBg: string;
+  panelBorder: string;
+  panelText: string;
+  panelSubtext: string;
+  panelAccent: string;
+  panelAccentText: string;
+  panelItemBg: string;
+  // Progress bar
+  progressFg: string;
+  progressBg: string;
+  // TOC
+  tocBg: string;
+  tocBorder: string;
+  tocActiveText: string;
+  // Prose (chapter content)
+  proseBg: string;
+  proseText: string;
+}
+
+export const THEMES: Record<ThemeName, ThemeConfig> = {
+  light: {
+    name: "Light",
+    emoji: "☀️",
+    bg: "#ffffff",
+    text: "#1e293b",
+    subtext: "#64748b",
+    toolbarBg: "#f8fafc",
+    toolbarBorder: "#e2e8f0",
+    toolbarText: "#1e293b",
+    btnBg: "#f1f5f9",
+    btnText: "#334155",
+    btnBorder: "#cbd5e1",
+    btnHoverBg: "#e2e8f0",
+    btnActiveBg: "#4f46e5",
+    btnActiveText: "#ffffff",
+    panelBg: "#ffffff",
+    panelBorder: "#e2e8f0",
+    panelText: "#1e293b",
+    panelSubtext: "#64748b",
+    panelAccent: "#4f46e5",
+    panelAccentText: "#ffffff",
+    panelItemBg: "#f8fafc",
+    progressFg: "#4f46e5",
+    progressBg: "#e2e8f0",
+    tocBg: "#f8fafc",
+    tocBorder: "#e2e8f0",
+    tocActiveText: "#ffffff",
+    proseBg: "#ffffff",
+    proseText: "#1e293b",
+  },
+  sepia: {
+    name: "Sepia",
+    emoji: "📜",
+    bg: "#fbf0d9",
+    text: "#433422",
+    subtext: "#7c6448",
+    toolbarBg: "#f5e6c4",
+    toolbarBorder: "#d4b896",
+    toolbarText: "#433422",
+    btnBg: "#ecdcc0",
+    btnText: "#5a3e28",
+    btnBorder: "#c4a27a",
+    btnHoverBg: "#e0ccaa",
+    btnActiveBg: "#8b5e3c",
+    btnActiveText: "#fff8ee",
+    panelBg: "#fdf6e3",
+    panelBorder: "#d4b896",
+    panelText: "#433422",
+    panelSubtext: "#7c6448",
+    panelAccent: "#8b5e3c",
+    panelAccentText: "#fff8ee",
+    panelItemBg: "#f5e6c8",
+    progressFg: "#8b5e3c",
+    progressBg: "#d4b896",
+    tocBg: "#f5e6c4",
+    tocBorder: "#d4b896",
+    tocActiveText: "#fff8ee",
+    proseBg: "#fbf0d9",
+    proseText: "#433422",
+  },
+  dark: {
+    name: "Dark",
+    emoji: "🌙",
+    bg: "#0f172a",
+    text: "#e2e8f0",
+    subtext: "#94a3b8",
+    toolbarBg: "#1e293b",
+    toolbarBorder: "#334155",
+    toolbarText: "#e2e8f0",
+    btnBg: "#334155",
+    btnText: "#cbd5e1",
+    btnBorder: "#475569",
+    btnHoverBg: "#475569",
+    btnActiveBg: "#6366f1",
+    btnActiveText: "#ffffff",
+    panelBg: "#1e293b",
+    panelBorder: "#334155",
+    panelText: "#e2e8f0",
+    panelSubtext: "#94a3b8",
+    panelAccent: "#6366f1",
+    panelAccentText: "#ffffff",
+    panelItemBg: "#0f172a",
+    progressFg: "#6366f1",
+    progressBg: "#334155",
+    tocBg: "#1e293b",
+    tocBorder: "#334155",
+    tocActiveText: "#ffffff",
+    proseBg: "#0f172a",
+    proseText: "#e2e8f0",
+  },
+  oled: {
+    name: "OLED",
+    emoji: "⚫",
+    bg: "#000000",
+    text: "#ffffff",
+    subtext: "#a1a1aa",
+    toolbarBg: "#0a0a0a",
+    toolbarBorder: "#27272a",
+    toolbarText: "#ffffff",
+    btnBg: "#18181b",
+    btnText: "#d4d4d8",
+    btnBorder: "#3f3f46",
+    btnHoverBg: "#27272a",
+    btnActiveBg: "#7c3aed",
+    btnActiveText: "#ffffff",
+    panelBg: "#0a0a0a",
+    panelBorder: "#27272a",
+    panelText: "#ffffff",
+    panelSubtext: "#a1a1aa",
+    panelAccent: "#7c3aed",
+    panelAccentText: "#ffffff",
+    panelItemBg: "#18181b",
+    progressFg: "#7c3aed",
+    progressBg: "#27272a",
+    tocBg: "#0a0a0a",
+    tocBorder: "#27272a",
+    tocActiveText: "#ffffff",
+    proseBg: "#000000",
+    proseText: "#ffffff",
+  },
+  forest: {
+    name: "Forest",
+    emoji: "🌲",
+    bg: "#071f12",
+    text: "#d1fae5",
+    subtext: "#6ee7b7",
+    toolbarBg: "#0d2e1a",
+    toolbarBorder: "#166534",
+    toolbarText: "#d1fae5",
+    btnBg: "#14532d",
+    btnText: "#86efac",
+    btnBorder: "#15803d",
+    btnHoverBg: "#166534",
+    btnActiveBg: "#16a34a",
+    btnActiveText: "#f0fdf4",
+    panelBg: "#0d2e1a",
+    panelBorder: "#166534",
+    panelText: "#d1fae5",
+    panelSubtext: "#6ee7b7",
+    panelAccent: "#16a34a",
+    panelAccentText: "#f0fdf4",
+    panelItemBg: "#071f12",
+    progressFg: "#16a34a",
+    progressBg: "#166534",
+    tocBg: "#0d2e1a",
+    tocBorder: "#166534",
+    tocActiveText: "#f0fdf4",
+    proseBg: "#071f12",
+    proseText: "#d1fae5",
+  },
+  nord: {
+    name: "Nord",
+    emoji: "❄️",
+    bg: "#2e3440",
+    text: "#eceff4",
+    subtext: "#88c0d0",
+    toolbarBg: "#3b4252",
+    toolbarBorder: "#434c5e",
+    toolbarText: "#eceff4",
+    btnBg: "#434c5e",
+    btnText: "#d8dee9",
+    btnBorder: "#4c566a",
+    btnHoverBg: "#4c566a",
+    btnActiveBg: "#81a1c1",
+    btnActiveText: "#2e3440",
+    panelBg: "#3b4252",
+    panelBorder: "#434c5e",
+    panelText: "#eceff4",
+    panelSubtext: "#88c0d0",
+    panelAccent: "#81a1c1",
+    panelAccentText: "#2e3440",
+    panelItemBg: "#2e3440",
+    progressFg: "#81a1c1",
+    progressBg: "#434c5e",
+    tocBg: "#3b4252",
+    tocBorder: "#434c5e",
+    tocActiveText: "#2e3440",
+    proseBg: "#2e3440",
+    proseText: "#eceff4",
+  },
+  solarized: {
+    name: "Solarized",
+    emoji: "🌅",
+    bg: "#fdf6e3",
+    text: "#657b83",
+    subtext: "#93a1a1",
+    toolbarBg: "#eee8d5",
+    toolbarBorder: "#d3c9a9",
+    toolbarText: "#586e75",
+    btnBg: "#e8e2d0",
+    btnText: "#586e75",
+    btnBorder: "#c8c1ab",
+    btnHoverBg: "#ddd7c5",
+    btnActiveBg: "#268bd2",
+    btnActiveText: "#fdf6e3",
+    panelBg: "#eee8d5",
+    panelBorder: "#d3c9a9",
+    panelText: "#657b83",
+    panelSubtext: "#93a1a1",
+    panelAccent: "#268bd2",
+    panelAccentText: "#fdf6e3",
+    panelItemBg: "#fdf6e3",
+    progressFg: "#268bd2",
+    progressBg: "#d3c9a9",
+    tocBg: "#eee8d5",
+    tocBorder: "#d3c9a9",
+    tocActiveText: "#fdf6e3",
+    proseBg: "#fdf6e3",
+    proseText: "#657b83",
+  },
+  gruvbox: {
+    name: "Gruvbox",
+    emoji: "🍂",
+    bg: "#282828",
+    text: "#ebdbb2",
+    subtext: "#a89984",
+    toolbarBg: "#3c3836",
+    toolbarBorder: "#504945",
+    toolbarText: "#ebdbb2",
+    btnBg: "#504945",
+    btnText: "#d5c4a1",
+    btnBorder: "#665c54",
+    btnHoverBg: "#665c54",
+    btnActiveBg: "#d79921",
+    btnActiveText: "#282828",
+    panelBg: "#3c3836",
+    panelBorder: "#504945",
+    panelText: "#ebdbb2",
+    panelSubtext: "#a89984",
+    panelAccent: "#d79921",
+    panelAccentText: "#282828",
+    panelItemBg: "#282828",
+    progressFg: "#d79921",
+    progressBg: "#504945",
+    tocBg: "#3c3836",
+    tocBorder: "#504945",
+    tocActiveText: "#282828",
+    proseBg: "#282828",
+    proseText: "#ebdbb2",
+  },
+  catppuccin: {
+    name: "Catppuccin",
+    emoji: "🐱",
+    bg: "#1e1e2e",
+    text: "#cdd6f4",
+    subtext: "#a6adc8",
+    toolbarBg: "#181825",
+    toolbarBorder: "#313244",
+    toolbarText: "#cdd6f4",
+    btnBg: "#313244",
+    btnText: "#bac2de",
+    btnBorder: "#45475a",
+    btnHoverBg: "#45475a",
+    btnActiveBg: "#cba6f7",
+    btnActiveText: "#1e1e2e",
+    panelBg: "#181825",
+    panelBorder: "#313244",
+    panelText: "#cdd6f4",
+    panelSubtext: "#a6adc8",
+    panelAccent: "#cba6f7",
+    panelAccentText: "#1e1e2e",
+    panelItemBg: "#1e1e2e",
+    progressFg: "#cba6f7",
+    progressBg: "#313244",
+    tocBg: "#181825",
+    tocBorder: "#313244",
+    tocActiveText: "#1e1e2e",
+    proseBg: "#1e1e2e",
+    proseText: "#cdd6f4",
+  },
+  rosepine: {
+    name: "Rosé Pine",
+    emoji: "🌸",
+    bg: "#191724",
+    text: "#e0def4",
+    subtext: "#908caa",
+    toolbarBg: "#1f1d2e",
+    toolbarBorder: "#26233a",
+    toolbarText: "#e0def4",
+    btnBg: "#26233a",
+    btnText: "#c4c0d9",
+    btnBorder: "#403d52",
+    btnHoverBg: "#403d52",
+    btnActiveBg: "#c4a7e7",
+    btnActiveText: "#191724",
+    panelBg: "#1f1d2e",
+    panelBorder: "#26233a",
+    panelText: "#e0def4",
+    panelSubtext: "#908caa",
+    panelAccent: "#c4a7e7",
+    panelAccentText: "#191724",
+    panelItemBg: "#191724",
+    progressFg: "#c4a7e7",
+    progressBg: "#26233a",
+    tocBg: "#1f1d2e",
+    tocBorder: "#26233a",
+    tocActiveText: "#191724",
+    proseBg: "#191724",
+    proseText: "#e0def4",
+  },
+  dracula: {
+    name: "Dracula",
+    emoji: "🧛",
+    bg: "#282a36",
+    text: "#f8f8f2",
+    subtext: "#6272a4",
+    toolbarBg: "#21222c",
+    toolbarBorder: "#44475a",
+    toolbarText: "#f8f8f2",
+    btnBg: "#44475a",
+    btnText: "#f8f8f2",
+    btnBorder: "#6272a4",
+    btnHoverBg: "#6272a4",
+    btnActiveBg: "#ff79c6",
+    btnActiveText: "#282a36",
+    panelBg: "#21222c",
+    panelBorder: "#44475a",
+    panelText: "#f8f8f2",
+    panelSubtext: "#6272a4",
+    panelAccent: "#ff79c6",
+    panelAccentText: "#282a36",
+    panelItemBg: "#282a36",
+    progressFg: "#ff79c6",
+    progressBg: "#44475a",
+    tocBg: "#21222c",
+    tocBorder: "#44475a",
+    tocActiveText: "#282a36",
+    proseBg: "#282a36",
+    proseText: "#f8f8f2",
+  },
+  tokyonight: {
+    name: "Tokyo Night",
+    emoji: "🗼",
+    bg: "#1a1b26",
+    text: "#c0caf5",
+    subtext: "#565f89",
+    toolbarBg: "#16161e",
+    toolbarBorder: "#2f3549",
+    toolbarText: "#c0caf5",
+    btnBg: "#2f3549",
+    btnText: "#a9b1d6",
+    btnBorder: "#414868",
+    btnHoverBg: "#414868",
+    btnActiveBg: "#7aa2f7",
+    btnActiveText: "#1a1b26",
+    panelBg: "#16161e",
+    panelBorder: "#2f3549",
+    panelText: "#c0caf5",
+    panelSubtext: "#565f89",
+    panelAccent: "#7aa2f7",
+    panelAccentText: "#1a1b26",
+    panelItemBg: "#1a1b26",
+    progressFg: "#7aa2f7",
+    progressBg: "#2f3549",
+    tocBg: "#16161e",
+    tocBorder: "#2f3549",
+    tocActiveText: "#1a1b26",
+    proseBg: "#1a1b26",
+    proseText: "#c0caf5",
+  },
+  amber: {
+    name: "Warm Amber",
+    emoji: "🌻",
+    bg: "#fefce8",
+    text: "#713f12",
+    subtext: "#92400e",
+    toolbarBg: "#fef9c3",
+    toolbarBorder: "#fde68a",
+    toolbarText: "#713f12",
+    btnBg: "#fef3c7",
+    btnText: "#78350f",
+    btnBorder: "#fcd34d",
+    btnHoverBg: "#fde68a",
+    btnActiveBg: "#d97706",
+    btnActiveText: "#fffbeb",
+    panelBg: "#fef9c3",
+    panelBorder: "#fde68a",
+    panelText: "#713f12",
+    panelSubtext: "#92400e",
+    panelAccent: "#d97706",
+    panelAccentText: "#fffbeb",
+    panelItemBg: "#fefce8",
+    progressFg: "#d97706",
+    progressBg: "#fde68a",
+    tocBg: "#fef9c3",
+    tocBorder: "#fde68a",
+    tocActiveText: "#fffbeb",
+    proseBg: "#fefce8",
+    proseText: "#713f12",
+  },
+  midnight: {
+    name: "Midnight Blue",
+    emoji: "🌌",
+    bg: "#0a0e27",
+    text: "#c7d2fe",
+    subtext: "#818cf8",
+    toolbarBg: "#0e1438",
+    toolbarBorder: "#1e254a",
+    toolbarText: "#c7d2fe",
+    btnBg: "#1e254a",
+    btnText: "#a5b4fc",
+    btnBorder: "#312e81",
+    btnHoverBg: "#2d3561",
+    btnActiveBg: "#6366f1",
+    btnActiveText: "#ffffff",
+    panelBg: "#0e1438",
+    panelBorder: "#1e254a",
+    panelText: "#c7d2fe",
+    panelSubtext: "#818cf8",
+    panelAccent: "#6366f1",
+    panelAccentText: "#ffffff",
+    panelItemBg: "#0a0e27",
+    progressFg: "#6366f1",
+    progressBg: "#1e254a",
+    tocBg: "#0e1438",
+    tocBorder: "#1e254a",
+    tocActiveText: "#ffffff",
+    proseBg: "#0a0e27",
+    proseText: "#c7d2fe",
+  },
+  highcontrast: {
+    name: "High Contrast",
+    emoji: "♟️",
+    bg: "#000000",
+    text: "#ffff00",
+    subtext: "#00ff00",
+    toolbarBg: "#111111",
+    toolbarBorder: "#ffff00",
+    toolbarText: "#ffff00",
+    btnBg: "#222222",
+    btnText: "#ffff00",
+    btnBorder: "#ffff00",
+    btnHoverBg: "#333333",
+    btnActiveBg: "#ffff00",
+    btnActiveText: "#000000",
+    panelBg: "#111111",
+    panelBorder: "#ffff00",
+    panelText: "#ffff00",
+    panelSubtext: "#00ff00",
+    panelAccent: "#ffff00",
+    panelAccentText: "#000000",
+    panelItemBg: "#000000",
+    progressFg: "#ffff00",
+    progressBg: "#333333",
+    tocBg: "#111111",
+    tocBorder: "#ffff00",
+    tocActiveText: "#000000",
+    proseBg: "#000000",
+    proseText: "#ffff00",
+  },
+  paper: {
+    name: "Paper White",
+    emoji: "📄",
+    bg: "#f5f5f0",
+    text: "#1a1a1a",
+    subtext: "#555555",
+    toolbarBg: "#ededea",
+    toolbarBorder: "#d1d1cc",
+    toolbarText: "#1a1a1a",
+    btnBg: "#e8e8e4",
+    btnText: "#333333",
+    btnBorder: "#c8c8c4",
+    btnHoverBg: "#ddddd9",
+    btnActiveBg: "#222222",
+    btnActiveText: "#f5f5f0",
+    panelBg: "#ededea",
+    panelBorder: "#d1d1cc",
+    panelText: "#1a1a1a",
+    panelSubtext: "#555555",
+    panelAccent: "#222222",
+    panelAccentText: "#f5f5f0",
+    panelItemBg: "#f5f5f0",
+    progressFg: "#222222",
+    progressBg: "#d1d1cc",
+    tocBg: "#ededea",
+    tocBorder: "#d1d1cc",
+    tocActiveText: "#f5f5f0",
+    proseBg: "#f5f5f0",
+    proseText: "#1a1a1a",
+  },
+};
+
+const THEME_ORDER: ThemeName[] = [
+  "light","sepia","dark","oled","forest","nord","solarized","gruvbox",
+  "catppuccin","rosepine","dracula","tokyonight","amber","midnight","highcontrast","paper"
+];
+
+// ─── MAIN COMPONENT ────────────────────────────────────────────────────────────
 
 export default function ReaderWorkspace({ initialFormat }: { initialFormat?: string }) {
   // Book & Content States
@@ -28,14 +576,17 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   // Customization & Typography
   const [fontSize, setFontSize] = useState<number>(19);
   const [zoomScale, setZoomScale] = useState<number>(100);
-  const [theme, setTheme] = useState<"light" | "sepia" | "dark" | "oled" | "forest">("light");
+  const [theme, setTheme] = useState<ThemeName>("light");
   const [selectedFont, setSelectedFont] = useState<FontOption>(GOOGLE_FONTS[0]);
   const [scrollMode, setScrollMode] = useState<"horizontal" | "vertical">("horizontal");
-  
+
   // Font Selector Modal
   const [showFontMenu, setShowFontMenu] = useState(false);
   const [fontSearchQuery, setFontSearchQuery] = useState("");
   const [fontCategoryFilter, setFontCategoryFilter] = useState<string>("all");
+
+  // Theme Picker
+  const [showThemePicker, setShowThemePicker] = useState(false);
 
   // UI Drawers & Controls
   const [showToc, setShowToc] = useState(false);
@@ -50,30 +601,43 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   const [dictionaryLoading, setDictionaryLoading] = useState(false);
   const [showDictionaryDrawer, setShowDictionaryDrawer] = useState(false);
   const [manualWordInput, setManualWordInput] = useState("");
+  // Bubble position: track click Y to show above/below
+  const [bubblePos, setBubblePos] = useState<{ x: number; y: number; above: boolean }>({ x: 0, y: 0, above: false });
 
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Helper to construct Google Font stylesheet URL
-  const getGoogleFontHref = (googleName: string) => {
-    return `https://fonts.googleapis.com/css2?family=${googleName}:wght@300;400;500;600;700;800&display=swap`;
-  };
+  // Short alias for current theme config
+  const T = THEMES[theme];
 
-  // Inject font stylesheet dynamically into document head
+  // ─── FONT INJECTION ────────────────────────────────────────────────────────
+
+  const getGoogleFontHref = (googleName: string) =>
+    `https://fonts.googleapis.com/css2?family=${googleName}:wght@300;400;500;600;700;800&display=swap`;
+
   useEffect(() => {
     const fontHref = getGoogleFontHref(selectedFont.googleName);
-    if (typeof document !== 'undefined' && !document.querySelector(`link[href="${fontHref}"]`)) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
+    if (typeof document !== "undefined" && !document.querySelector(`link[href="${fontHref}"]`)) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
       link.href = fontHref;
       document.head.appendChild(link);
     }
   }, [selectedFont]);
 
-  // Dictionary Lookup Execution
-  const executeDictionaryLookup = useCallback(async (word: string) => {
-    const clean = word.toLowerCase().replace(/[^a-z]/g, '').trim();
+  // ─── DICTIONARY ────────────────────────────────────────────────────────────
+
+  const executeDictionaryLookup = useCallback(async (word: string, clickEvent?: MouseEvent | React.MouseEvent) => {
+    const clean = word.toLowerCase().replace(/[^a-z]/g, "").trim();
     if (!clean || clean.length < 2) return;
+
+    // Smart bubble positioning
+    if (clickEvent) {
+      const winH = window.innerHeight;
+      const x = (clickEvent as any).clientX || window.innerWidth / 2;
+      const y = (clickEvent as any).clientY || winH / 2;
+      setBubblePos({ x, y, above: y > winH * 0.55 });
+    }
 
     setSelectedWord(clean);
     setDictionaryLoading(true);
@@ -87,9 +651,10 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     }
   }, []);
 
-  // Web Speech Pronunciation Audio
+  // ─── SPEECH ────────────────────────────────────────────────────────────────
+
   const speakWord = (text: string) => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 0.88;
@@ -100,53 +665,61 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     }
   };
 
-  // Turn page forward / backward
-  const triggerPageTurn = useCallback((direction: 'next' | 'prev') => {
-    setPageFlipAnim(direction);
-    setTimeout(() => setPageFlipAnim(null), 250);
+  // ─── PAGE TURN ─────────────────────────────────────────────────────────────
 
-    if (direction === 'next') {
-      setCurrentChapterIndex((prev) => Math.min(chapters.length - 1, prev + 1));
-    } else {
-      setCurrentChapterIndex((prev) => Math.max(0, prev - 1));
-    }
+  const triggerPageTurn = useCallback(
+    (direction: "next" | "prev") => {
+      setPageFlipAnim(direction);
+      setTimeout(() => setPageFlipAnim(null), 300);
 
-    // Scroll back to top on page turn
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = 0;
-    }
-  }, [chapters.length]);
+      if (direction === "next") {
+        setCurrentChapterIndex((prev) => Math.min(chapters.length - 1, prev + 1));
+      } else {
+        setCurrentChapterIndex((prev) => Math.max(0, prev - 1));
+      }
 
-  // Global Keyboard Navigation
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
+      }
+    },
+    [chapters.length]
+  );
+
+  // ─── KEYBOARD NAV ──────────────────────────────────────────────────────────
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isReading) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
-      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+      if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
         e.preventDefault();
-        triggerPageTurn('next');
-      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        triggerPageTurn("next");
+      } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
         e.preventDefault();
-        triggerPageTurn('prev');
-      } else if (e.key === 'Escape') {
+        triggerPageTurn("prev");
+      } else if (e.key === "Escape") {
+        if (selectedWord) { setSelectedWord(null); return; }
+        if (showThemePicker) { setShowThemePicker(false); return; }
+        if (showFontMenu) { setShowFontMenu(false); return; }
         setIsReading(false);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isReading, triggerPageTurn]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isReading, triggerPageTurn, selectedWord, showThemePicker, showFontMenu]);
 
-  // Process Document / EPUB File
+  // ─── FILE PROCESSING ───────────────────────────────────────────────────────
+
   const processFile = async (f: File) => {
     setLoading(true);
     setFileName(f.name);
-    const ext = f.name.split('.').pop()?.toLowerCase() || '';
+    const ext = f.name.split(".").pop()?.toLowerCase() || "";
     setFileType(ext);
 
     try {
-      if (ext === 'epub') {
+      if (ext === "epub") {
         const buffer = await f.arrayBuffer();
         const parsed = await parseEpubArchive(buffer, f.name);
         setBookTitle(parsed.title || f.name);
@@ -174,13 +747,10 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
               fullPath: `section-${tempChapters.length + 1}`,
               fileName: `section-${tempChapters.length + 1}`,
               title: chTitle,
-              html: currentChunk.replace(/\n/g, '<br/>'),
-              textLength: currentChunk.length
+              html: currentChunk.replace(/\n/g, "<br/>"),
+              textLength: currentChunk.length,
             });
-            tempToc.push({
-              label: chTitle,
-              chapterIndex: tempChapters.length - 1
-            });
+            tempToc.push({ label: chTitle, chapterIndex: tempChapters.length - 1 });
             tempPathMap[`section-${tempChapters.length}`] = tempChapters.length - 1;
             currentChunk = "";
           }
@@ -188,7 +758,11 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
         setBookTitle(f.name.replace(/\.[^/.]+$/, ""));
         setBookAuthor("Document");
-        setChapters(tempChapters.length > 0 ? tempChapters : [{ id: "c1", fullPath: "c1", fileName: "c1", title: f.name, html: text.replace(/\n/g, '<br/>'), textLength: text.length }]);
+        setChapters(
+          tempChapters.length > 0
+            ? tempChapters
+            : [{ id: "c1", fullPath: "c1", fileName: "c1", title: f.name, html: text.replace(/\n/g, "<br/>"), textLength: text.length }]
+        );
         setToc(tempToc);
         setPathMap(tempPathMap);
         setCurrentChapterIndex(0);
@@ -200,7 +774,9 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
       try {
         const text = await f.text();
         setBookTitle(f.name);
-        setChapters([{ id: "fallback", fullPath: "fallback", fileName: "fallback", title: f.name, html: text.replace(/\n/g, '<br/>').slice(0, 60000), textLength: text.length }]);
+        setChapters([
+          { id: "fallback", fullPath: "fallback", fileName: "fallback", title: f.name, html: text.replace(/\n/g, "<br/>").slice(0, 60000), textLength: text.length },
+        ]);
         setToc([{ label: "Start", chapterIndex: 0 }]);
         setCurrentChapterIndex(0);
         setIsReading(true);
@@ -209,27 +785,28 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     }
   };
 
-  // Intercept click on in-book chapter hyperlinks
-  const handleContentClick = (e: React.MouseEvent) => {
-    const anchorEl = (e.target as HTMLElement).closest('a');
-    if (anchorEl) {
-      const targetFile = anchorEl.getAttribute('data-chapter-target');
-      const anchor = anchorEl.getAttribute('data-anchor-target');
-      const href = anchorEl.getAttribute('href');
+  // ─── INTERNAL LINK HANDLING ────────────────────────────────────────────────
 
-      if (targetFile || (href && !href.startsWith('http') && !href.startsWith('mailto'))) {
+  const handleContentClick = (e: React.MouseEvent) => {
+    const anchorEl = (e.target as HTMLElement).closest("a");
+    if (anchorEl) {
+      const targetFile = anchorEl.getAttribute("data-chapter-target");
+      const anchor = anchorEl.getAttribute("data-anchor-target");
+      const href = anchorEl.getAttribute("href");
+
+      if (targetFile || (href && !href.startsWith("http") && !href.startsWith("mailto"))) {
         e.preventDefault();
         e.stopPropagation();
 
-        const fileToFind = (targetFile || href || '').split('#')[0].split('/').pop() || '';
+        const fileToFind = (targetFile || href || "").split("#")[0].split("/").pop() || "";
         const targetIdx = pathMap[fileToFind] ?? (targetFile ? pathMap[targetFile] : undefined);
 
-        if (typeof targetIdx === 'number' && targetIdx >= 0 && targetIdx < chapters.length) {
+        if (typeof targetIdx === "number" && targetIdx >= 0 && targetIdx < chapters.length) {
           setCurrentChapterIndex(targetIdx);
           if (anchor) {
             setTimeout(() => {
               const el = document.getElementById(anchor) || document.querySelector(`[name="${anchor}"]`);
-              el?.scrollIntoView({ behavior: 'smooth' });
+              el?.scrollIntoView({ behavior: "smooth" });
             }, 100);
           }
           if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
@@ -250,7 +827,8 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     if (droppedFile) processFile(droppedFile);
   };
 
-  // Fullscreen toggle
+  // ─── FULLSCREEN ────────────────────────────────────────────────────────────
+
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       readerContainerRef.current?.requestFullscreen?.();
@@ -261,7 +839,8 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     }
   };
 
-  // Demo Classic Book Loader
+  // ─── DEMO BOOK ─────────────────────────────────────────────────────────────
+
   const loadDemoBook = async () => {
     setLoading(true);
     setFileName("Sherlock_Holmes_Classic_Demo.epub");
@@ -285,34 +864,19 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
     setChapters([
       { id: "ch1", fullPath: "ch1.html", fileName: "ch1.html", title: "Chapter 1: A Scandal in Bohemia", html: demoChapter1, textLength: demoChapter1.length },
-      { id: "ch2", fullPath: "ch2.html", fileName: "ch2.html", title: "Chapter 2: The Red-Headed League", html: demoChapter2, textLength: demoChapter2.length }
+      { id: "ch2", fullPath: "ch2.html", fileName: "ch2.html", title: "Chapter 2: The Red-Headed League", html: demoChapter2, textLength: demoChapter2.length },
     ]);
     setToc([
       { label: "Chapter 1: A Scandal in Bohemia", chapterIndex: 0 },
-      { label: "Chapter 2: The Red-Headed League", chapterIndex: 1 }
+      { label: "Chapter 2: The Red-Headed League", chapterIndex: 1 },
     ]);
     setCurrentChapterIndex(0);
     setIsReading(true);
     setLoading(false);
   };
 
-  // Theme Class
-  const getThemeClass = () => {
-    switch (theme) {
-      case "dark":
-        return "bg-slate-950 text-slate-100";
-      case "oled":
-        return "bg-black text-slate-100";
-      case "forest":
-        return "bg-[#071f12] text-[#d1fae5]";
-      case "sepia":
-        return "bg-[#fbf0d9] text-[#433422]";
-      default:
-        return "bg-white text-slate-900";
-    }
-  };
+  // ─── COMPUTED ──────────────────────────────────────────────────────────────
 
-  // Filtered Fonts List
   const filteredFonts = GOOGLE_FONTS.filter((f) => {
     const matchesQuery = f.name.toLowerCase().includes(fontSearchQuery.toLowerCase());
     const matchesCategory = fontCategoryFilter === "all" || f.category === fontCategoryFilter;
@@ -320,14 +884,63 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   });
 
   const currentChapter = chapters[currentChapterIndex];
-  const progressPercent = chapters.length > 0 
-    ? Math.round(((currentChapterIndex + 1) / chapters.length) * 100) 
-    : 0;
+  const progressPercent = chapters.length > 0 ? Math.round(((currentChapterIndex + 1) / chapters.length) * 100) : 0;
+
+  // ─── MOUSE SELECTION HANDLER ───────────────────────────────────────────────
+
+  const handleTextMouseUp = (e: React.MouseEvent) => {
+    const sel = window.getSelection()?.toString() || "";
+    const clean = sel.replace(/[^a-zA-Z]/g, "").trim();
+    if (clean && clean.length >= 2) {
+      executeDictionaryLookup(clean, e);
+    }
+  };
+
+  // ─── BUBBLE STYLE ─────────────────────────────────────────────────────────
+
+  const getBubbleStyle = (): React.CSSProperties => {
+    const base: React.CSSProperties = {
+      position: "absolute",
+      zIndex: 50,
+      width: "22rem",
+      maxWidth: "calc(100vw - 2rem)",
+      right: "1.5rem",
+      background: T.panelBg,
+      border: `1.5px solid ${T.panelBorder}`,
+      color: T.panelText,
+      borderRadius: "1rem",
+      boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+      padding: "1rem",
+    };
+    if (bubblePos.above) {
+      base.bottom = "4.5rem";
+    } else {
+      base.top = "1rem";
+    }
+    return base;
+  };
+
+  // ─── TOOLBAR BUTTON STYLE HELPERS ─────────────────────────────────────────
+
+  const btnStyle: React.CSSProperties = {
+    background: T.btnBg,
+    color: T.btnText,
+    border: `1px solid ${T.btnBorder}`,
+  };
+
+  const btnActiveStyle: React.CSSProperties = {
+    background: T.btnActiveBg,
+    color: T.btnActiveText,
+    border: `1px solid ${T.btnActiveBg}`,
+  };
+
+  // ─── RENDER ────────────────────────────────────────────────────────────────
 
   return (
-    <div 
+    <div
       ref={readerContainerRef}
-      className={`w-full ${isReading ? 'fixed inset-0 z-50 bg-slate-950 p-0 overflow-hidden select-text' : 'max-w-7xl mx-auto my-4 px-2 sm:px-4'}`}
+      className={`w-full ${isReading ? "fixed inset-0 z-50 p-0 overflow-hidden select-text" : "max-w-7xl mx-auto my-4 px-2 sm:px-4"}`}
+      style={isReading ? { background: T.bg, color: T.text } : undefined}
     >
       {loading && (
         <div className="p-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 max-w-xl mx-auto my-12">
@@ -337,7 +950,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         </div>
       )}
 
-      {/* Upload Dropzone */}
+      {/* ── UPLOAD DROPZONE ─────────────────────────────────────────── */}
       {!isReading && !loading ? (
         <div
           onDragOver={(e) => e.preventDefault()}
@@ -350,9 +963,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             </div>
 
             <div className="space-y-2">
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
-                Drop your E-Book or Document here
-              </h2>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">Drop your E-Book or Document here</h2>
               <p className="text-sm text-slate-600 dark:text-slate-400">
                 Supports <span className="font-semibold text-indigo-600 dark:text-indigo-400">.EPUB, .PDF, .MOBI, .AZW3, .FB2, .CBZ, .TXT</span> files
               </p>
@@ -362,12 +973,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
               <label className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold text-sm shadow-lg shadow-indigo-500/25 cursor-pointer transition-all flex items-center justify-center gap-2">
                 <BookOpen className="w-4 h-4" />
                 <span>Select File from Device</span>
-                <input
-                  type="file"
-                  accept=".epub,.pdf,.mobi,.azw3,.fb2,.cbz,.txt"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
+                <input type="file" accept=".epub,.pdf,.mobi,.azw3,.fb2,.cbz,.txt" onChange={handleFileUpload} className="hidden" />
               </label>
 
               <button
@@ -396,15 +1002,20 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
           </div>
         </div>
       ) : isReading ? (
-        /* Fullscreen Reading Experience */
-        <div className={`flex flex-col h-screen w-screen transition-colors ${getThemeClass()}`}>
-          {/* Top Reading Toolbar */}
-          <div className="h-14 px-3 sm:px-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs shrink-0 bg-opacity-95 backdrop-blur z-30">
-            {/* Left Controls */}
+        /* ── READING MODE ────────────────────────────────────────────── */
+        <div className="flex flex-col h-screen w-screen" style={{ background: T.bg, color: T.text }}>
+
+          {/* ── TOP TOOLBAR ──────────────────────────────────────────── */}
+          <div
+            className="h-14 px-3 sm:px-5 flex items-center justify-between gap-2 text-xs shrink-0 z-30"
+            style={{ background: T.toolbarBg, borderBottom: `1px solid ${T.toolbarBorder}`, color: T.toolbarText }}
+          >
+            {/* Left: Close + Title */}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsReading(false)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-semibold transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-colors"
+                style={btnStyle}
                 title="Exit Reader"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -412,70 +1023,68 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
               </button>
 
               <div className="flex items-center gap-1.5 max-w-[140px] sm:max-w-xs font-semibold text-xs sm:text-sm truncate">
-                <Book className="w-4 h-4 text-indigo-500 shrink-0" />
+                <Book className="w-4 h-4 shrink-0" style={{ color: T.panelAccent }} />
                 <span className="truncate">{bookTitle || fileName}</span>
               </div>
             </div>
 
-            {/* Right Toolbar Controls */}
+            {/* Right: Controls */}
             <div className="flex items-center gap-1.5 sm:gap-2">
-              {/* Vertical Scroll vs Horizontal Flip Mode */}
+              {/* Scroll Mode Toggle */}
               <button
-                onClick={() => setScrollMode(scrollMode === 'horizontal' ? 'vertical' : 'horizontal')}
-                className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  scrollMode === 'vertical' 
-                    ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600 dark:text-emerald-400' 
-                    : 'border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
+                onClick={() => setScrollMode(scrollMode === "horizontal" ? "vertical" : "horizontal")}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
+                style={scrollMode === "vertical" ? btnActiveStyle : btnStyle}
                 title="Switch between Page Flip and Vertical Continuous Scroll"
               >
-                {scrollMode === 'horizontal' ? (
+                {scrollMode === "horizontal" ? (
                   <>
-                    <MoveHorizontal className="w-3.5 h-3.5 text-indigo-500" />
+                    <MoveHorizontal className="w-3.5 h-3.5" />
                     <span className="hidden md:inline">Flip Pages</span>
                   </>
                 ) : (
                   <>
-                    <MoveVertical className="w-3.5 h-3.5 text-emerald-500" />
+                    <MoveVertical className="w-3.5 h-3.5" />
                     <span className="hidden md:inline">Vertical Scroll</span>
                   </>
                 )}
               </button>
 
-              {/* Dictionary Launcher Button */}
+              {/* Dictionary Launcher */}
               <button
                 onClick={() => setShowDictionaryDrawer(!showDictionaryDrawer)}
-                className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  showDictionaryDrawer 
-                    ? 'bg-indigo-600 text-white border-indigo-600' 
-                    : 'border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
+                style={showDictionaryDrawer ? btnActiveStyle : btnStyle}
                 title="Open Dictionary Lookup"
               >
-                <Search className="w-3.5 h-3.5 text-indigo-400" />
+                <Search className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Dictionary</span>
               </button>
 
-              {/* 116 Google Fonts Selector */}
+              {/* Font Selector */}
               <div className="relative">
                 <button
                   onClick={() => setShowFontMenu(!showFontMenu)}
-                  className="px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5"
+                  style={showFontMenu ? btnActiveStyle : btnStyle}
                   title="Choose from 116 Google Fonts"
                 >
-                  <Type className="w-3.5 h-3.5 text-indigo-500" />
+                  <Type className="w-3.5 h-3.5" />
                   <span className="truncate max-w-[70px] sm:max-w-[100px]">{selectedFont.name}</span>
                   <ChevronDown className="w-3 h-3 opacity-60" />
                 </button>
 
                 {showFontMenu && (
-                  <div className="absolute right-0 top-11 z-50 w-80 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-2.5">
-                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                  <div
+                    className="absolute right-0 top-11 z-50 w-80 p-3 rounded-2xl shadow-2xl space-y-2.5"
+                    style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}
+                  >
+                    <div className="flex items-center justify-between pb-2" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
                       <div>
                         <span className="font-bold text-xs">116 Google Fonts</span>
-                        <span className="text-[10px] text-slate-400 block">Select font to apply live</span>
+                        <span className="text-[10px] block" style={{ color: T.panelSubtext }}>Select font to apply live</span>
                       </div>
-                      <button onClick={() => setShowFontMenu(false)} className="text-slate-400 hover:text-slate-600">
+                      <button onClick={() => setShowFontMenu(false)} style={{ color: T.panelSubtext }}>
                         <X className="w-4 h-4" />
                       </button>
                     </div>
@@ -486,11 +1095,12 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                         <button
                           key={cat}
                           onClick={() => setFontCategoryFilter(cat)}
-                          className={`px-2 py-1 rounded-md capitalize shrink-0 transition-colors ${
+                          className="px-2 py-1 rounded-md capitalize shrink-0 transition-colors"
+                          style={
                             fontCategoryFilter === cat
-                              ? "bg-indigo-600 text-white font-bold"
-                              : "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300"
-                          }`}
+                              ? { background: T.panelAccent, color: T.panelAccentText, fontWeight: 700 }
+                              : { background: T.panelItemBg, color: T.panelSubtext }
+                          }
                         >
                           {cat}
                         </button>
@@ -499,13 +1109,14 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
                     {/* Font Search Input */}
                     <div className="relative">
-                      <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                      <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5" style={{ color: T.panelSubtext }} />
                       <input
                         type="text"
                         placeholder="Search font by name..."
                         value={fontSearchQuery}
                         onChange={(e) => setFontSearchQuery(e.target.value)}
-                        className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-slate-100 dark:bg-slate-800 border-none focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border-none focus:outline-none"
+                        style={{ background: T.panelItemBg, color: T.panelText }}
                       />
                     </div>
 
@@ -518,16 +1129,25 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                             setSelectedFont(font);
                             setShowFontMenu(false);
                           }}
-                          className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between transition-colors ${
+                          className="w-full text-left px-3 py-2 rounded-lg flex items-center justify-between transition-colors"
+                          style={
                             selectedFont.name === font.name
-                              ? "bg-indigo-600 text-white font-semibold shadow"
-                              : "hover:bg-slate-100 dark:hover:bg-slate-800"
-                          }`}
+                              ? { background: T.panelAccent, color: T.panelAccentText, fontWeight: 600 }
+                              : { background: "transparent", color: T.panelText }
+                          }
+                          onMouseEnter={(e) => {
+                            if (selectedFont.name !== font.name) {
+                              (e.currentTarget as HTMLElement).style.background = T.panelItemBg;
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (selectedFont.name !== font.name) {
+                              (e.currentTarget as HTMLElement).style.background = "transparent";
+                            }
+                          }}
                         >
-                          <span style={{ fontFamily: font.family }} className="text-sm">
-                            {font.name}
-                          </span>
-                          <span className="text-[9px] opacity-60 uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/10 dark:bg-white/10">
+                          <span style={{ fontFamily: font.family }} className="text-sm">{font.name}</span>
+                          <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: T.btnBg, color: T.panelSubtext }}>
                             {font.category}
                           </span>
                         </button>
@@ -537,91 +1157,114 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                 )}
               </div>
 
-              {/* Font Size Decrement / Increment */}
-              <div className="flex items-center border border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden">
+              {/* Font Size Controls */}
+              <div className="flex items-center rounded-lg overflow-hidden" style={{ border: `1px solid ${T.btnBorder}` }}>
                 <button
                   onClick={() => setFontSize(Math.max(12, fontSize - 2))}
-                  className="px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs"
+                  className="px-2 py-1.5 text-xs transition-colors"
+                  style={{ background: T.btnBg, color: T.btnText }}
                   title="Smaller Font"
                 >
                   <ZoomOut className="w-3.5 h-3.5" />
                 </button>
-                <span className="font-semibold text-xs px-1.5 min-w-[26px] text-center">{fontSize}</span>
+                <span className="font-semibold text-xs px-1.5 min-w-[26px] text-center" style={{ background: T.btnBg, color: T.btnText }}>{fontSize}</span>
                 <button
                   onClick={() => setFontSize(Math.min(44, fontSize + 2))}
-                  className="px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs"
+                  className="px-2 py-1.5 text-xs transition-colors"
+                  style={{ background: T.btnBg, color: T.btnText }}
                   title="Larger Font"
                 >
                   <ZoomIn className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              {/* Page Zoom Control */}
-              <div className="hidden lg:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+              {/* Page Zoom */}
+              <div className="hidden lg:flex items-center gap-1 px-2 py-1 rounded-lg" style={{ background: T.btnBg, color: T.btnText }}>
                 <span className="text-[11px] font-mono font-bold">{zoomScale}%</span>
-                <button
-                  onClick={() => setZoomScale(Math.min(180, zoomScale + 10))}
-                  className="hover:text-indigo-600 text-xs font-bold px-1"
-                  title="Zoom In Page"
-                >
-                  +
-                </button>
-                <button
-                  onClick={() => setZoomScale(Math.max(70, zoomScale - 10))}
-                  className="hover:text-indigo-600 text-xs font-bold px-1"
-                  title="Zoom Out Page"
-                >
-                  -
-                </button>
+                <button onClick={() => setZoomScale(Math.min(180, zoomScale + 10))} className="text-xs font-bold px-1" title="Zoom In Page">+</button>
+                <button onClick={() => setZoomScale(Math.max(70, zoomScale - 10))} className="text-xs font-bold px-1" title="Zoom Out Page">-</button>
                 {zoomScale !== 100 && (
-                  <button
-                    onClick={() => setZoomScale(100)}
-                    className="p-0.5 hover:text-rose-500"
-                    title="Reset Zoom"
-                  >
+                  <button onClick={() => setZoomScale(100)} className="p-0.5" title="Reset Zoom">
                     <RotateCcw className="w-3 h-3" />
                   </button>
                 )}
               </div>
 
-              {/* Theme Cycle Selector */}
-              <button
-                onClick={() => setTheme(theme === "light" ? "sepia" : theme === "sepia" ? "dark" : theme === "dark" ? "oled" : theme === "oled" ? "forest" : "light")}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 capitalize flex items-center gap-1.5"
-                title="Switch Theme"
-              >
-                {theme === "light" && <Sun className="w-3.5 h-3.5 text-amber-500" />}
-                {theme === "sepia" && <Book className="w-3.5 h-3.5 text-amber-700" />}
-                {theme === "dark" && <Moon className="w-3.5 h-3.5 text-indigo-400" />}
-                {theme === "oled" && <Moon className="w-3.5 h-3.5 text-slate-400" />}
-                {theme === "forest" && <Compass className="w-3.5 h-3.5 text-emerald-400" />}
-                <span className="hidden md:inline">{theme}</span>
-              </button>
+              {/* Theme Picker */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowThemePicker(!showThemePicker)}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  style={showThemePicker ? btnActiveStyle : btnStyle}
+                  title="Switch Theme"
+                >
+                  <Palette className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">{T.emoji} {T.name}</span>
+                </button>
 
-              {/* Fullscreen Toggle */}
+                {showThemePicker && (
+                  <div
+                    className="absolute right-0 top-11 z-50 w-72 p-3 rounded-2xl shadow-2xl space-y-2"
+                    style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}
+                  >
+                    <div className="flex items-center justify-between pb-2" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
+                      <span className="font-bold text-xs">16 Themes</span>
+                      <button onClick={() => setShowThemePicker(false)} style={{ color: T.panelSubtext }}>
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {THEME_ORDER.map((tid) => {
+                        const t = THEMES[tid];
+                        const isActive = theme === tid;
+                        return (
+                          <button
+                            key={tid}
+                            onClick={() => { setTheme(tid); setShowThemePicker(false); }}
+                            className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold transition-all"
+                            style={{
+                              background: isActive ? T.panelAccent : T.panelItemBg,
+                              color: isActive ? T.panelAccentText : T.panelText,
+                              border: isActive ? `1.5px solid ${T.panelAccent}` : `1px solid ${T.panelBorder}`,
+                            }}
+                          >
+                            <span className="text-base leading-none">{t.emoji}</span>
+                            <span>{t.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Fullscreen */}
               <button
                 onClick={toggleFullscreen}
-                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hidden sm:inline-flex"
+                className="p-1.5 rounded-lg hidden sm:inline-flex transition-colors"
+                style={btnStyle}
                 title="Toggle Fullscreen"
               >
                 {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
               </button>
 
-              {/* TOC Drawer Toggle */}
+              {/* TOC Toggle */}
               {toc.length > 0 && (
                 <button
                   onClick={() => setShowToc(!showToc)}
-                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="p-1.5 rounded-lg transition-colors"
+                  style={showToc ? btnActiveStyle : btnStyle}
                   title="Table of Contents"
                 >
                   <List className="w-4 h-4" />
                 </button>
               )}
 
-              {/* Keyboard Shortcuts Help */}
+              {/* Shortcuts Help */}
               <button
                 onClick={() => setShowShortcuts(!showShortcuts)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hidden sm:inline-flex"
+                className="p-1.5 rounded-lg hidden sm:inline-flex transition-colors"
+                style={showShortcuts ? btnActiveStyle : btnStyle}
                 title="Keyboard Shortcuts"
               >
                 <HelpCircle className="w-4 h-4" />
@@ -629,14 +1272,18 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             </div>
           </div>
 
-          {/* Main Reading Viewport Area */}
+          {/* ── MAIN VIEWPORT ──────────────────────────────────────────── */}
           <div className="relative flex-1 flex overflow-hidden w-full h-full">
-            {/* Table of Contents Drawer */}
+
+            {/* TOC Drawer */}
             {showToc && toc.length > 0 && (
-              <div className="w-72 sm:w-80 border-r border-slate-200 dark:border-slate-800 p-4 space-y-2 bg-slate-50 dark:bg-slate-900 text-xs shrink-0 overflow-y-auto z-30 shadow-xl no-scrollbar hide-scrollbar">
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2 mb-2">
+              <div
+                className="w-72 sm:w-80 p-4 space-y-2 text-xs shrink-0 overflow-y-auto z-30 shadow-xl no-scrollbar hide-scrollbar"
+                style={{ background: T.tocBg, borderRight: `1px solid ${T.tocBorder}`, color: T.panelText }}
+              >
+                <div className="flex items-center justify-between pb-2 mb-2" style={{ borderBottom: `1px solid ${T.tocBorder}` }}>
                   <h4 className="font-bold text-sm">Table of Contents</h4>
-                  <button onClick={() => setShowToc(false)} className="text-slate-400 hover:text-slate-600">
+                  <button onClick={() => setShowToc(false)} style={{ color: T.panelSubtext }}>
                     <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -648,11 +1295,22 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                       setShowToc(false);
                       if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
                     }}
-                    className={`w-full text-left p-2.5 rounded-xl transition-colors truncate font-medium ${
+                    className="w-full text-left p-2.5 rounded-xl transition-colors truncate font-medium"
+                    style={
                       currentChapterIndex === item.chapterIndex
-                        ? 'bg-indigo-600 text-white font-bold shadow'
-                        : 'hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                    }`}
+                        ? { background: T.panelAccent, color: T.tocActiveText }
+                        : { background: "transparent", color: T.panelText }
+                    }
+                    onMouseEnter={(e) => {
+                      if (currentChapterIndex !== item.chapterIndex) {
+                        (e.currentTarget as HTMLElement).style.background = T.panelItemBg;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (currentChapterIndex !== item.chapterIndex) {
+                        (e.currentTarget as HTMLElement).style.background = "transparent";
+                      }
+                    }}
                   >
                     {item.label}
                   </button>
@@ -662,13 +1320,16 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
             {/* Dictionary Sidebar Drawer */}
             {showDictionaryDrawer && (
-              <div className="w-84 sm:w-96 border-r border-slate-200 dark:border-slate-800 p-4 space-y-3 bg-white dark:bg-slate-900 text-xs shrink-0 overflow-y-auto z-30 shadow-2xl no-scrollbar hide-scrollbar">
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
-                  <span className="font-bold text-sm flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
+              <div
+                className="w-80 sm:w-96 p-4 space-y-3 text-xs shrink-0 overflow-y-auto z-30 shadow-2xl no-scrollbar hide-scrollbar"
+                style={{ background: T.panelBg, borderRight: `1px solid ${T.panelBorder}`, color: T.panelText }}
+              >
+                <div className="flex items-center justify-between pb-2.5" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
+                  <span className="font-bold text-sm flex items-center gap-1.5" style={{ color: T.panelAccent }}>
                     <BookOpen className="w-4 h-4" />
                     Dictionary & Lexicon
                   </span>
-                  <button onClick={() => setShowDictionaryDrawer(false)} className="text-slate-400 hover:text-slate-600">
+                  <button onClick={() => setShowDictionaryDrawer(false)} style={{ color: T.panelSubtext }}>
                     <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -679,14 +1340,14 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                     placeholder="Type word to define..."
                     value={manualWordInput}
                     onChange={(e) => setManualWordInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') executeDictionaryLookup(manualWordInput);
-                    }}
-                    className="flex-1 px-3 py-2 text-xs rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    onKeyDown={(e) => { if (e.key === "Enter") executeDictionaryLookup(manualWordInput); }}
+                    className="flex-1 px-3 py-2 text-xs rounded-xl focus:outline-none focus:ring-2"
+                    style={{ background: T.panelItemBg, color: T.panelText, border: `1px solid ${T.panelBorder}` }}
                   />
                   <button
                     onClick={() => executeDictionaryLookup(manualWordInput)}
-                    className="px-3.5 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 active:scale-95 transition-transform"
+                    className="px-3.5 py-2 rounded-xl font-bold text-xs hover:opacity-90 active:scale-95 transition-transform"
+                    style={{ background: T.panelAccent, color: T.panelAccentText }}
                   >
                     Lookup
                   </button>
@@ -694,57 +1355,14 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
                 {dictionaryLoading ? (
                   <div className="p-8 text-center space-y-2">
-                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
-                    <p className="text-slate-500 text-xs">Consulting world lexicons...</p>
+                    <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin mx-auto" style={{ borderColor: T.panelAccent, borderTopColor: "transparent" }} />
+                    <p className="text-xs" style={{ color: T.panelSubtext }}>Consulting world lexicons...</p>
                   </div>
                 ) : dictionaryData ? (
-                  <div className="space-y-3 pt-2">
-                    <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-950/40 p-3 rounded-2xl border border-indigo-100 dark:border-indigo-900/50">
-                      <div>
-                        <span className="font-extrabold text-lg capitalize text-slate-900 dark:text-white block">
-                          {dictionaryData.word}
-                        </span>
-                        <span className="font-mono text-xs text-indigo-600 dark:text-indigo-400">
-                          {dictionaryData.phonetic}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => speakWord(dictionaryData.word)}
-                        className={`p-2.5 rounded-xl bg-indigo-600 text-white shadow-md hover:bg-indigo-700 transition-all ${
-                          isPlayingAudio ? 'animate-pulse ring-4 ring-indigo-300' : ''
-                        }`}
-                        title="Pronounce with Audio Speech"
-                      >
-                        <Volume2 className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-2.5 pt-1">
-                      {dictionaryData.meanings.map((m, idx) => (
-                        <div key={idx} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-1.5">
-                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 uppercase tracking-wide">
-                            {m.partOfSpeech}
-                          </span>
-                          <p className="text-slate-800 dark:text-slate-200 leading-relaxed text-xs">
-                            {m.definition}
-                          </p>
-                          {m.example && (
-                            <p className="text-slate-500 dark:text-slate-400 italic text-[11px] pl-2 border-l-2 border-indigo-400">
-                              &ldquo;{m.example}&rdquo;
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="pt-2 text-[10px] text-slate-400 flex items-center justify-between">
-                      <span>Source: {dictionaryData.source}</span>
-                      <span>100% Offline Ready</span>
-                    </div>
-                  </div>
+                  <DictionaryResultPanel data={dictionaryData} T={T} isPlayingAudio={isPlayingAudio} onSpeak={speakWord} />
                 ) : (
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-slate-500 space-y-2">
-                    <p className="font-semibold text-xs text-slate-700 dark:text-slate-300">
+                  <div className="p-4 rounded-xl text-xs space-y-2" style={{ background: T.panelItemBg, border: `1px solid ${T.panelBorder}` }}>
+                    <p className="font-semibold" style={{ color: T.panelText }}>
                       💡 Double-click or select any word in the book to view definitions and audio pronunciation.
                     </p>
                   </div>
@@ -752,91 +1370,138 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
               </div>
             )}
 
-            {/* Selection Floating Word Card */}
+            {/* ── FLOATING DICTIONARY BUBBLE (when sidebar closed) ─────── */}
             {selectedWord && !showDictionaryDrawer && (
-              <div className="absolute top-4 right-6 z-40 w-80 sm:w-88 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-2.5 text-xs animate-in fade-in slide-in-from-top-2">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-sm capitalize text-indigo-600 dark:text-indigo-400">
+              <div style={getBubbleStyle()} className="animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="flex items-center justify-between pb-2 mb-2" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-extrabold text-sm capitalize" style={{ color: T.panelAccent }}>
                       {dictionaryData?.word || selectedWord}
                     </span>
-                    <span className="font-mono text-[11px] text-slate-400">
+                    <span className="font-mono text-[11px]" style={{ color: T.panelSubtext }}>
                       {dictionaryData?.phonetic}
                     </span>
                     <button
                       onClick={() => speakWord(dictionaryData?.word || selectedWord)}
-                      className={`p-1 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 hover:scale-105 transition-transform ${
-                        isPlayingAudio ? 'animate-pulse' : ''
-                      }`}
+                      className="p-1 rounded transition-transform hover:scale-105"
+                      style={{ background: T.panelItemBg, color: T.panelAccent }}
                       title="Pronounce Word"
                     >
-                      <Volume2 className="w-3.5 h-3.5" />
+                      <Volume2 className={`w-3.5 h-3.5 ${isPlayingAudio ? "animate-pulse" : ""}`} />
                     </button>
                   </div>
-                  <button onClick={() => setSelectedWord(null)} className="p-1 text-slate-400 hover:text-slate-600">
+                  <button onClick={() => setSelectedWord(null)} style={{ color: T.panelSubtext }}>
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
                 {dictionaryLoading ? (
-                  <p className="text-slate-500 py-2">Consulting dictionary...</p>
+                  <p className="py-2 text-xs" style={{ color: T.panelSubtext }}>Consulting dictionary...</p>
                 ) : dictionaryData ? (
-                  <div className="space-y-2 max-h-56 overflow-y-auto no-scrollbar">
-                    {dictionaryData.meanings.map((m, idx) => (
-                      <div key={idx} className="space-y-1 border-b border-slate-100 dark:border-slate-800 pb-2 last:border-none">
-                        <span className="font-semibold text-indigo-600 dark:text-indigo-400 italic text-[11px]">{m.partOfSpeech}</span>
-                        <p className="text-slate-700 dark:text-slate-300 leading-relaxed">{m.definition}</p>
-                        {m.example && <p className="text-slate-400 italic text-[11px]">&ldquo;{m.example}&rdquo;</p>}
+                  <div className="space-y-2">
+                    <div className="max-h-52 overflow-y-auto no-scrollbar space-y-2">
+                      {dictionaryData.meanings.slice(0, 3).map((m, idx) => (
+                        <div key={idx} className="space-y-1 pb-2" style={{ borderBottom: idx < 2 ? `1px solid ${T.panelBorder}` : "none" }}>
+                          <span className="font-semibold italic text-[11px]" style={{ color: T.panelAccent }}>{m.partOfSpeech}</span>
+                          <p className="leading-relaxed text-xs" style={{ color: T.panelText }}>{m.definition}</p>
+                          {m.example && (
+                            <p className="italic text-[11px]" style={{ color: T.panelSubtext }}>&ldquo;{m.example}&rdquo;</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Hindi Translation */}
+                    {dictionaryData.hindiTranslation && (
+                      <div className="mt-2 pt-2 rounded-lg px-3 py-2" style={{ background: T.panelItemBg, border: `1px solid ${T.panelBorder}` }}>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="text-base">🇮🇳</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: T.panelSubtext }}>Hindi Translation</span>
+                        </div>
+                        <p className="text-sm font-bold" style={{ color: T.panelText, fontFamily: "'Noto Sans Devanagari', sans-serif" }}>
+                          {dictionaryData.hindiTranslation}
+                        </p>
                       </div>
-                    ))}
+                    )}
+
+                    <div className="pt-1 text-[10px] flex items-center justify-between" style={{ color: T.panelSubtext }}>
+                      <span>Source: {dictionaryData.source}</span>
+                      <button
+                        onClick={() => { setShowDictionaryDrawer(true); setSelectedWord(null); }}
+                        className="underline"
+                        style={{ color: T.panelAccent }}
+                      >
+                        Open full panel →
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <p className="text-slate-500 py-1">Searching dictionary definition...</p>
+                  <p className="py-1 text-xs" style={{ color: T.panelSubtext }}>Searching dictionary definition...</p>
                 )}
               </div>
             )}
 
             {/* Keyboard Shortcuts Modal */}
             {showShortcuts && (
-              <div className="absolute top-4 left-4 z-40 w-72 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-3 text-xs">
-                <div className="flex items-center justify-between border-b pb-2">
+              <div
+                className="absolute top-4 left-4 z-40 w-72 p-4 rounded-2xl shadow-2xl space-y-3 text-xs"
+                style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}
+              >
+                <div className="flex items-center justify-between pb-2" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
                   <span className="font-bold text-sm">Keyboard Shortcuts</span>
-                  <button onClick={() => setShowShortcuts(false)} className="text-slate-400 hover:text-slate-600">
+                  <button onClick={() => setShowShortcuts(false)} style={{ color: T.panelSubtext }}>
                     <X className="w-4 h-4" />
                   </button>
                 </div>
                 <div className="space-y-2">
-                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">→</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Space</kbd> <span>Next Page</span></div>
-                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">←</kbd> <span>Previous Page</span></div>
-                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Double-Click Word</kbd> <span>Instant Dictionary</span></div>
-                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Esc</kbd> <span>Close Reader</span></div>
+                  <div className="flex justify-between">
+                    <kbd className="px-1.5 py-0.5 rounded font-mono text-xs" style={{ background: T.btnBg, color: T.btnText }}>→</kbd>
+                    <span style={{ color: T.panelSubtext }}>Next Page</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <kbd className="px-1.5 py-0.5 rounded font-mono text-xs" style={{ background: T.btnBg, color: T.btnText }}>←</kbd>
+                    <span style={{ color: T.panelSubtext }}>Previous Page</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <kbd className="px-1.5 py-0.5 rounded font-mono text-xs" style={{ background: T.btnBg, color: T.btnText }}>Space</kbd>
+                    <span style={{ color: T.panelSubtext }}>Next Page</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <kbd className="px-1.5 py-0.5 rounded font-mono text-xs" style={{ background: T.btnBg, color: T.btnText }}>Double-Click Word</kbd>
+                    <span style={{ color: T.panelSubtext }}>Dictionary</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <kbd className="px-1.5 py-0.5 rounded font-mono text-xs" style={{ background: T.btnBg, color: T.btnText }}>Esc</kbd>
+                    <span style={{ color: T.panelSubtext }}>Close Reader</span>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Reader Viewport Area */}
+            {/* ── READER VIEWPORT ─────────────────────────────────────── */}
             <div className="flex-1 w-full h-full relative flex items-center justify-center overflow-hidden">
-              {/* Left & Right Click Navigation Margins for Kindle Page Turn */}
-              {scrollMode === 'horizontal' && (
+              {/* Left / Right Click Nav Margins for Kindle Page Turn */}
+              {scrollMode === "horizontal" && (
                 <>
-                  <button 
-                    onClick={() => triggerPageTurn('prev')}
+                  <button
+                    onClick={() => triggerPageTurn("prev")}
                     disabled={currentChapterIndex === 0}
-                    className="absolute left-0 top-0 bottom-0 w-16 sm:w-24 z-20 cursor-pointer flex items-center justify-start pl-3 opacity-0 hover:opacity-100 transition-opacity bg-gradient-to-r from-black/10 to-transparent dark:from-white/10 disabled:pointer-events-none"
+                    className="absolute left-0 top-0 bottom-0 w-16 sm:w-24 z-20 cursor-pointer flex items-center justify-start pl-3 opacity-0 hover:opacity-100 transition-opacity disabled:pointer-events-none"
+                    style={{ background: "linear-gradient(to right, rgba(0,0,0,0.12), transparent)" }}
                     title="Previous Page (←)"
                   >
-                    <div className="w-8 h-8 rounded-full bg-slate-900/60 text-white flex items-center justify-center shadow-lg backdrop-blur">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg" style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}>
                       <ChevronLeft className="w-5 h-5" />
                     </div>
                   </button>
-
-                  <button 
-                    onClick={() => triggerPageTurn('next')}
+                  <button
+                    onClick={() => triggerPageTurn("next")}
                     disabled={currentChapterIndex >= chapters.length - 1}
-                    className="absolute right-0 top-0 bottom-0 w-16 sm:w-24 z-20 cursor-pointer flex items-center justify-end pr-3 opacity-0 hover:opacity-100 transition-opacity bg-gradient-to-l from-black/10 to-transparent dark:from-white/10 disabled:pointer-events-none"
+                    className="absolute right-0 top-0 bottom-0 w-16 sm:w-24 z-20 cursor-pointer flex items-center justify-end pr-3 opacity-0 hover:opacity-100 transition-opacity disabled:pointer-events-none"
+                    style={{ background: "linear-gradient(to left, rgba(0,0,0,0.12), transparent)" }}
                     title="Next Page (→)"
                   >
-                    <div className="w-8 h-8 rounded-full bg-slate-900/60 text-white flex items-center justify-center shadow-lg backdrop-blur">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg" style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}>
                       <ChevronRight className="w-5 h-5" />
                     </div>
                   </button>
@@ -844,51 +1509,44 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
               )}
 
               {/* Reader Document Container with Zoom & Page Turn Transitions */}
-              <div 
+              <div
                 ref={scrollContainerRef}
                 onClick={handleContentClick}
-                className={`w-full h-full no-scrollbar hide-scrollbar transition-transform duration-200 ease-out ${
-                  scrollMode === 'vertical' 
-                    ? 'overflow-y-auto overflow-x-hidden p-4 sm:p-10' 
-                    : 'overflow-y-auto overflow-x-hidden p-4 sm:p-10 flex flex-col justify-start items-center'
-                } ${
-                  pageFlipAnim === 'next' 
-                    ? '-translate-x-4 scale-[0.985] opacity-70' 
-                    : pageFlipAnim === 'prev' 
-                    ? 'translate-x-4 scale-[0.985] opacity-70' 
-                    : 'translate-x-0 scale-100 opacity-100'
+                className={`w-full h-full no-scrollbar hide-scrollbar ${
+                  scrollMode === "vertical" ? "overflow-y-auto overflow-x-hidden p-4 sm:p-10" : "overflow-y-auto overflow-x-hidden p-4 sm:p-10 flex flex-col justify-start items-center"
                 }`}
                 style={{
-                  transform: `scale(${zoomScale / 100})`,
-                  transformOrigin: 'top center'
+                  transform: `scale(${zoomScale / 100}) ${
+                    pageFlipAnim === "next" ? "translateX(-12px)" : pageFlipAnim === "prev" ? "translateX(12px)" : ""
+                  }`,
+                  opacity: pageFlipAnim ? 0.65 : 1,
+                  transformOrigin: "top center",
+                  transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease",
                 }}
               >
-                {scrollMode === 'vertical' ? (
-                  /* Vertical Continuous Scroll View: All Chapters Stacked */
+                {scrollMode === "vertical" ? (
+                  /* Vertical Continuous Scroll: All Chapters Stacked */
                   <div className="max-w-3xl mx-auto w-full space-y-16 pb-24">
                     {chapters.map((ch, idx) => (
-                      <article key={ch.id || idx} className="space-y-6 border-b border-slate-200 dark:border-slate-800 pb-16">
-                        <header className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                      <article key={ch.id || idx} className="space-y-6" style={{ borderBottom: `1px solid ${T.toolbarBorder}`, paddingBottom: "4rem" }}>
+                        <header className="pb-3" style={{ borderBottom: `1px solid ${T.toolbarBorder}` }}>
+                          <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: T.panelAccent }}>
                             Chapter {idx + 1} of {chapters.length}
                           </span>
-                          <h2 className="text-2xl sm:text-3xl font-extrabold mt-1 tracking-tight">
+                          <h2 className="text-2xl sm:text-3xl font-extrabold mt-1 tracking-tight" style={{ color: T.text }}>
                             {ch.title}
                           </h2>
                         </header>
                         <div
-                          className="leading-relaxed space-y-5 select-text prose dark:prose-invert max-w-none"
-                          style={{ 
-                            fontSize: `${fontSize}px`, 
+                          className="leading-relaxed space-y-5 select-text"
+                          style={{
+                            fontSize: `${fontSize}px`,
                             fontFamily: selectedFont.family,
-                            lineHeight: '1.8'
+                            lineHeight: "1.85",
+                            color: T.proseText,
                           }}
                           dangerouslySetInnerHTML={{ __html: ch.html }}
-                          onMouseUp={() => {
-                            const sel = window.getSelection()?.toString() || "";
-                            const clean = sel.replace(/[^a-zA-Z]/g, '').trim();
-                            if (clean && clean.length >= 2) executeDictionaryLookup(clean);
-                          }}
+                          onMouseUp={handleTextMouseUp}
                         />
                       </article>
                     ))}
@@ -898,31 +1556,28 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                   <div className="max-w-3xl mx-auto w-full pb-20 pt-4">
                     {currentChapter ? (
                       <article className="space-y-6">
-                        <header className="pb-3 border-b border-slate-200 dark:border-slate-800/80">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                        <header className="pb-3" style={{ borderBottom: `1px solid ${T.toolbarBorder}` }}>
+                          <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: T.panelAccent }}>
                             Chapter {currentChapterIndex + 1} of {chapters.length}
                           </span>
-                          <h2 className="text-2xl sm:text-3xl font-extrabold mt-1 tracking-tight">
+                          <h2 className="text-2xl sm:text-3xl font-extrabold mt-1 tracking-tight" style={{ color: T.text }}>
                             {currentChapter.title}
                           </h2>
                         </header>
                         <div
-                          className="leading-relaxed space-y-5 select-text prose dark:prose-invert max-w-none"
-                          style={{ 
-                            fontSize: `${fontSize}px`, 
+                          className="leading-relaxed space-y-5 select-text"
+                          style={{
+                            fontSize: `${fontSize}px`,
                             fontFamily: selectedFont.family,
-                            lineHeight: '1.8'
+                            lineHeight: "1.85",
+                            color: T.proseText,
                           }}
                           dangerouslySetInnerHTML={{ __html: currentChapter.html }}
-                          onMouseUp={() => {
-                            const sel = window.getSelection()?.toString() || "";
-                            const clean = sel.replace(/[^a-zA-Z]/g, '').trim();
-                            if (clean && clean.length >= 2) executeDictionaryLookup(clean);
-                          }}
+                          onMouseUp={handleTextMouseUp}
                         />
                       </article>
                     ) : (
-                      <p className="text-slate-400 text-center py-16">No chapter content loaded.</p>
+                      <p className="text-center py-16" style={{ color: T.subtext }}>No chapter content loaded.</p>
                     )}
                   </div>
                 )}
@@ -930,12 +1585,16 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             </div>
           </div>
 
-          {/* Bottom Reader Navigation Toolbar */}
-          <div className="h-12 px-4 sm:px-8 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs font-semibold shrink-0 bg-opacity-95 backdrop-blur z-20">
+          {/* ── BOTTOM NAV BAR ──────────────────────────────────────────── */}
+          <div
+            className="h-12 px-4 sm:px-8 flex items-center justify-between text-xs font-semibold shrink-0 z-20"
+            style={{ background: T.toolbarBg, borderTop: `1px solid ${T.toolbarBorder}`, color: T.toolbarText }}
+          >
             <button
-              onClick={() => triggerPageTurn('prev')}
+              onClick={() => triggerPageTurn("prev")}
               disabled={currentChapterIndex === 0}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 transition-all shadow disabled:opacity-40 disabled:pointer-events-none"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl active:scale-95 transition-all shadow disabled:opacity-40 disabled:pointer-events-none"
+              style={{ background: T.panelAccent, color: T.panelAccentText }}
               title="Previous Page"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -943,21 +1602,22 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             </button>
 
             <div className="flex items-center gap-3">
-              <span className="text-slate-600 dark:text-slate-400">
+              <span style={{ color: T.subtext }}>
                 Chapter {currentChapterIndex + 1} of {Math.max(1, chapters.length)} ({progressPercent}%)
               </span>
-              <div className="w-24 sm:w-36 h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                <div 
-                  className="h-full bg-indigo-600 transition-all duration-300 rounded-full" 
-                  style={{ width: `${Math.max(5, progressPercent)}%` }} 
+              <div className="w-24 sm:w-36 h-2 rounded-full overflow-hidden" style={{ background: T.progressBg }}>
+                <div
+                  className="h-full transition-all duration-300 rounded-full"
+                  style={{ width: `${Math.max(5, progressPercent)}%`, background: T.progressFg }}
                 />
               </div>
             </div>
 
             <button
-              onClick={() => triggerPageTurn('next')}
+              onClick={() => triggerPageTurn("next")}
               disabled={currentChapterIndex >= chapters.length - 1}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 transition-all shadow disabled:opacity-40 disabled:pointer-events-none"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl active:scale-95 transition-all shadow disabled:opacity-40 disabled:pointer-events-none"
+              style={{ background: T.panelAccent, color: T.panelAccentText }}
               title="Next Page"
             >
               <span className="hidden sm:inline">Next</span>
@@ -966,6 +1626,94 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+// ─── DICTIONARY RESULT PANEL (reused in sidebar) ───────────────────────────
+
+function DictionaryResultPanel({
+  data,
+  T,
+  isPlayingAudio,
+  onSpeak,
+}: {
+  data: DictionaryResult;
+  T: ThemeConfig;
+  isPlayingAudio: boolean;
+  onSpeak: (word: string) => void;
+}) {
+  return (
+    <div className="space-y-3 pt-2">
+      <div
+        className="flex items-center justify-between p-3 rounded-2xl"
+        style={{ background: T.panelItemBg, border: `1px solid ${T.panelBorder}` }}
+      >
+        <div>
+          <span className="font-extrabold text-lg capitalize block" style={{ color: T.panelText }}>
+            {data.word}
+          </span>
+          <span className="font-mono text-xs" style={{ color: T.panelAccent }}>
+            {data.phonetic}
+          </span>
+        </div>
+        <button
+          onClick={() => onSpeak(data.word)}
+          className="p-2.5 rounded-xl shadow-md hover:opacity-90 transition-all"
+          style={{
+            background: T.panelAccent,
+            color: T.panelAccentText,
+            outline: isPlayingAudio ? `3px solid ${T.panelAccent}` : "none",
+            outlineOffset: "2px",
+          }}
+          title="Pronounce with Audio Speech"
+        >
+          <Volume2 className={`w-4 h-4 ${isPlayingAudio ? "animate-pulse" : ""}`} />
+        </button>
+      </div>
+
+      <div className="space-y-2.5 pt-1">
+        {data.meanings.map((m, idx) => (
+          <div
+            key={idx}
+            className="p-3 rounded-xl space-y-1.5"
+            style={{ background: T.panelItemBg, border: `1px solid ${T.panelBorder}` }}
+          >
+            <span
+              className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide"
+              style={{ background: T.panelAccent + "22", color: T.panelAccent }}
+            >
+              {m.partOfSpeech}
+            </span>
+            <p className="leading-relaxed text-xs" style={{ color: T.panelText }}>
+              {m.definition}
+            </p>
+            {m.example && (
+              <p className="italic text-[11px] pl-2" style={{ color: T.panelSubtext, borderLeft: `2px solid ${T.panelAccent}` }}>
+                &ldquo;{m.example}&rdquo;
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Hindi Translation */}
+      {data.hindiTranslation && (
+        <div className="p-3 rounded-xl" style={{ background: T.panelItemBg, border: `1px solid ${T.panelBorder}` }}>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-lg">🇮🇳</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: T.panelSubtext }}>Hindi Translation</span>
+          </div>
+          <p className="text-base font-bold" style={{ color: T.panelText, fontFamily: "'Noto Sans Devanagari', sans-serif" }}>
+            {data.hindiTranslation}
+          </p>
+        </div>
+      )}
+
+      <div className="pt-2 text-[10px] flex items-center justify-between" style={{ color: T.panelSubtext }}>
+        <span>Source: {data.source}</span>
+        <span>100% Offline Ready</span>
+      </div>
     </div>
   );
 }
