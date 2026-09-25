@@ -9,6 +9,8 @@ type PersistentHighlight = {
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import localforage from "localforage";
+import { Clock, Trash2, Library, Save } from "lucide-react";
 import {
   Upload, BookOpen, Sun, Moon, Book, ZoomIn, ZoomOut,
   List, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2,
@@ -289,6 +291,57 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   const [loading, setLoading] = useState(false);
   const [bookTitle, setBookTitle] = useState<string>("");
   const [bookAuthor, setBookAuthor] = useState<string>("");
+  const [library, setLibrary] = useState<{ id: string, name: string, addedAt: number, size: number }[]>([]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedLib = localStorage.getItem("lumina_library");
+      if (savedLib) {
+        try {
+          setLibrary(JSON.parse(savedLib));
+        } catch (e) {}
+      }
+    }
+  }, []);
+
+  const saveToLibrary = (file: File | Blob, name: string) => {
+    const bookId = `lumina_book_${name}`;
+    localforage.setItem(bookId, file).then(() => {
+      setLibrary(prev => {
+        const filtered = prev.filter(p => p.name !== name);
+        const newLib = [{ id: bookId, name, addedAt: Date.now(), size: file.size }, ...filtered];
+        localStorage.setItem("lumina_library", JSON.stringify(newLib));
+        return newLib;
+      });
+    });
+  };
+
+  const loadFromLibrary = async (name: string) => {
+    setLoading(true);
+    try {
+      const bookId = `lumina_book_${name}`;
+      const file: File | Blob | null = await localforage.getItem(bookId);
+      if (file) {
+        const f = file instanceof File ? file : new File([file], name, { type: file.type });
+        await processFile(f, true);
+      }
+    } catch(e) {
+      console.error(e);
+    }
+    setLoading(false);
+  };
+
+  const removeFromLibrary = async (name: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const bookId = `lumina_book_${name}`;
+    await localforage.removeItem(bookId);
+    setLibrary(prev => {
+      const newLib = prev.filter(p => p.name !== name);
+      localStorage.setItem("lumina_library", JSON.stringify(newLib));
+      return newLib;
+    });
+  };
+  
   const [chapters, setChapters] = useState<ParsedChapter[]>([]);
   const [toc, setToc] = useState<TocItem[]>([]);
   const [pathMap, setPathMap] = useState<Record<string, number>>({});
@@ -334,6 +387,13 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   const [bubblePos, setBubblePos] = useState<{ above: boolean }>({ above: false });
 
   // Progress for vertical scroll (0–100)
+  // Track chapter progress
+  useEffect(() => {
+    if (isReading && fileName) {
+      localStorage.setItem(`lumina_prog_${fileName}`, JSON.stringify({ chapterIndex: currentChapterIndex }));
+    }
+  }, [currentChapterIndex, isReading, fileName]);
+  
   const [verticalProgress, setVerticalProgress] = useState(0);
   const chapterProgressRef = useRef<HTMLDivElement>(null);
 
@@ -613,7 +673,8 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
   // ─── FILE PROCESSING ───────────────────────────────────────────────────────
 
-  const processFile = async (f: File) => {
+  const processFile = async (f: File, fromLibrary = false) => {
+    if (!fromLibrary) saveToLibrary(f, f.name);
     setLoading(true);
     setFileName(f.name);
     const ext = f.name.split(".").pop()?.toLowerCase() || "";
@@ -627,7 +688,16 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         setChapters(parsed.chapters);
         setToc(parsed.toc);
         setPathMap(parsed.pathMap);
-        setCurrentChapterIndex(0);
+        
+        const savedProg = localStorage.getItem(`lumina_prog_${f.name}`);
+        if (savedProg) {
+          try {
+            setCurrentChapterIndex(JSON.parse(savedProg).chapterIndex || 0);
+          } catch(e) { setCurrentChapterIndex(0); }
+        } else {
+          setCurrentChapterIndex(0);
+        }
+
         setIsReading(true);
         setLoading(false);
       } else {
@@ -652,7 +722,16 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         setChapters(tempChapters.length > 0 ? tempChapters : [{ id: "c1", fullPath: "c1", fileName: "c1", title: f.name, html: text.replace(/\n/g, "<br/>"), textLength: text.length }]);
         setToc(tempToc);
         setPathMap(tempPathMap);
-        setCurrentChapterIndex(0);
+        
+        const savedProg = localStorage.getItem(`lumina_prog_${f.name}`);
+        if (savedProg) {
+          try {
+            setCurrentChapterIndex(JSON.parse(savedProg).chapterIndex || 0);
+          } catch(e) { setCurrentChapterIndex(0); }
+        } else {
+          setCurrentChapterIndex(0);
+        }
+
         setIsReading(true);
         setLoading(false);
       }
@@ -663,7 +742,16 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         setBookTitle(f.name);
         setChapters([{ id: "fallback", fullPath: "fallback", fileName: "fallback", title: f.name, html: text.replace(/\n/g, "<br/>").slice(0, 60000), textLength: text.length }]);
         setToc([{ label: "Start", chapterIndex: 0 }]);
-        setCurrentChapterIndex(0);
+        
+        const savedProg = localStorage.getItem(`lumina_prog_${f.name}`);
+        if (savedProg) {
+          try {
+            setCurrentChapterIndex(JSON.parse(savedProg).chapterIndex || 0);
+          } catch(e) { setCurrentChapterIndex(0); }
+        } else {
+          setCurrentChapterIndex(0);
+        }
+
         setIsReading(true);
       } catch {}
       setLoading(false);
@@ -749,7 +837,9 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
       { label: "Chapter 1: A Scandal in Bohemia", chapterIndex: 0 },
       { label: "Chapter 2: The Red-Headed League", chapterIndex: 1 },
     ]);
-    setCurrentChapterIndex(0);
+    
+        setCurrentChapterIndex(0);
+
     setIsReading(true);
     setLoading(false);
   };
