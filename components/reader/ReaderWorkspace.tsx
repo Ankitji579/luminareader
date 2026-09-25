@@ -994,17 +994,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
           {/* ── TOP TOOLBAR ─────────────────────────────────────────────── */}
           <div className="relative h-14 px-3 sm:px-5 flex items-center justify-between gap-2 text-xs shrink-0 z-30" style={{ background: T.toolbarBg, borderBottom: `1px solid ${T.toolbarBorder}`, color: T.toolbarText }}>
             
-            {/* ── CHAPTER PROGRESS BAR (Top Edge) ── */}
-            <div className="absolute bottom-0 left-0 right-0 h-1 z-40 overflow-hidden" style={{ background: T.toolbarBorder }}>
-              <div 
-                className="h-full transition-all duration-150 ease-out"
-                style={{ 
-                  width: `${chapterProgress}%`, 
-                  background: T.panelAccent,
-                  boxShadow: `0 0 10px ${T.panelAccent}`
-                }} 
-              />
-            </div>
+            
             {/* Left: Close + Title */}
             <div className="flex items-center gap-2">
               <button onClick={() => setIsReading(false)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-colors" style={btnStyle} title="Exit Reader">
@@ -1210,6 +1200,18 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                 <HelpCircle className="w-4 h-4" />
               </button>
             </div>
+          </div>
+
+          {/* ── CHAPTER PROGRESS BAR (Top Edge) ── */}
+          <div className="w-full h-1.5 z-40 relative" style={{ background: T.toolbarBg }}>
+            <div 
+              className="h-full transition-all duration-150 ease-out rounded-r-full"
+              style={{ 
+                width: `${chapterProgress}%`, 
+                background: T.panelAccent,
+                boxShadow: `0 0 12px ${T.panelAccent}, 0 0 4px ${T.panelAccent}`
+              }} 
+            />
           </div>
 
           {/* ── MAIN VIEWPORT ──────────────────────────────────────────── */}
