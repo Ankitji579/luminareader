@@ -354,13 +354,22 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   const [pathMap, setPathMap] = useState<Record<string, number>>({});
   const [currentChapterIndex, setCurrentChapterIndex] = useState<number>(0);
 
-  // Auto-load book from library redirect
+// Auto-load book from library redirect
   useEffect(() => {
     const bookToLoad = sessionStorage.getItem("lumina_load_book");
     if (bookToLoad) {
       sessionStorage.removeItem("lumina_load_book");
       loadFromLibrary(bookToLoad);
     }
+
+    const handleGlobalTrigger = (e: any) => {
+      const name = e.detail;
+      sessionStorage.removeItem("lumina_load_book"); // clear just in case
+      loadFromLibrary(name);
+    };
+
+    window.addEventListener('lumina-trigger-load', handleGlobalTrigger as EventListener);
+    return () => window.removeEventListener('lumina-trigger-load', handleGlobalTrigger as EventListener);
   }, []);
 
   // Customization & Typography
