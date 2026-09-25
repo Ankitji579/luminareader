@@ -1297,7 +1297,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             </div>
 
             {/* Right: Controls */}
-            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar shrink-0 max-w-[55vw] sm:max-w-none pr-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar shrink-0 max-w-[55vw] sm:max-w-none pr-2 [&>*]:shrink-0">
               {/* Scroll Mode Toggle */}
               <button onClick={() => setScrollMode(scrollMode === "horizontal" ? "vertical" : "horizontal")} className="p-1.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center" style={scrollMode === "vertical" ? btnActiveStyle : btnStyle} title="Switch between Page Flip and Vertical Scroll">
                 {scrollMode === "horizontal" ? <MoveHorizontal className="w-4 h-4" /> : <MoveVertical className="w-4 h-4" />}
