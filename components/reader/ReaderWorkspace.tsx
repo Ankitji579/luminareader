@@ -1200,7 +1200,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   return (
     <div
       ref={readerContainerRef}
-      className={`w-full ${isReading ? "fixed inset-0 z-[100] p-0 overflow-hidden select-text" : "max-w-7xl mx-auto my-4 px-2 sm:px-4"}`}
+      className={`w-full ${isReading ? "fixed inset-0 z-[100] p-0 overflow-hidden select-text" : "h-full"}`}
       style={isReading ? { background: T.bg, color: T.text } : undefined}
     >
       {(isReading || pdfModePrompt) && (
@@ -1217,7 +1217,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
       {/* ── UPLOAD DROPZONE ─────────────────────────────────────────────────── */}
       {!isReading && !loading && !pdfModePrompt ? (
-        <div onDragOver={(e) => e.preventDefault()} onDrop={handleDrop} className="relative group overflow-hidden rounded-[2rem] border border-white/20 dark:border-white/10 bg-white/40 dark:bg-black/40 backdrop-blur-3xl p-8 sm:p-20 text-center transition-all hover:border-indigo-500/50 hover:bg-white/60 dark:hover:bg-black/60 shadow-2xl shadow-indigo-500/5 hover:shadow-indigo-500/20 max-w-4xl mx-auto w-full">
+        <div onDragOver={(e) => e.preventDefault()} onDrop={handleDrop} className="relative group overflow-hidden rounded-[2rem] border border-dashed border-indigo-500/30 dark:border-indigo-400/20 bg-indigo-50/50 dark:bg-indigo-950/20 p-10 sm:p-16 text-center transition-all hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 w-full">
           
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-purple-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
           
