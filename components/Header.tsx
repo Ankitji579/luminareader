@@ -52,7 +52,7 @@ export default function Header() {
 
   return (
     <header id="lumina-global-header" className="sticky top-0 z-50 w-full bg-white/80 dark:bg-black/80 backdrop-blur-2xl border-b border-slate-200/50 dark:border-white/10">
-      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         
         {/* Brand */}
         <Link href="/" className="flex items-center gap-3 group">
