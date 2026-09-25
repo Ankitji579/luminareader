@@ -9,7 +9,6 @@ type PersistentHighlight = {
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Portal from "@/components/Portal";
 import { useTheme as useNextTheme } from "next-themes";
 
 import localforage from "localforage";
