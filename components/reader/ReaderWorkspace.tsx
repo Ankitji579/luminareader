@@ -3,21 +3,26 @@
 import { useState, useEffect, useRef } from "react";
 import { 
   Upload, BookOpen, Sun, Moon, Book, ZoomIn, ZoomOut, 
-  List, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2, Maximize, Minimize 
+  List, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2, 
+  Maximize, Minimize, Search, X, Volume2, Bookmark
 } from "lucide-react";
 import ePub, { Book as EpubBook, Rendition, NavItem } from "epubjs";
 
-interface ReaderWorkspaceProps {
-  initialFormat?: string;
+interface DictionaryResult {
+  word: string;
+  phonetic?: string;
+  meanings: {
+    partOfSpeech: string;
+    definitions: { definition: string; example?: string }[];
+  }[];
 }
 
-export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps) {
+export default function ReaderWorkspace({ initialFormat }: { initialFormat?: string }) {
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [fileType, setFileType] = useState<string>("");
   const [isReading, setIsReading] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   // EpubJS states
   const [epubBook, setEpubBook] = useState<EpubBook | null>(null);
@@ -31,10 +36,15 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
 
   // Customization State
   const [fontSize, setFontSize] = useState<number>(18);
-  const [theme, setTheme] = useState<"light" | "sepia" | "dark">("light");
+  const [theme, setTheme] = useState<"light" | "sepia" | "dark" | "oled">("light");
   const [fontFamily, setFontFamily] = useState<"serif" | "sans" | "mono">("serif");
   const [showToc, setShowToc] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
+
+  // Dictionary Popup State
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const [dictionaryData, setDictionaryData] = useState<DictionaryResult | null>(null);
+  const [dictionaryLoading, setDictionaryLoading] = useState(false);
 
   const viewerRef = useRef<HTMLDivElement>(null);
 
@@ -55,7 +65,6 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
 
   const processFile = async (f: File) => {
     setLoading(true);
-    setErrorMessage(null);
     setFile(f);
     setFileName(f.name);
     const ext = f.name.split('.').pop()?.toLowerCase() || '';
@@ -112,7 +121,7 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
     }
   };
 
-  // Render EpubJS rendition when viewerRef is ready
+  // Setup EpubJS rendition & content hooks
   useEffect(() => {
     if (isReading && fileType === 'epub' && epubBook && viewerRef.current) {
       viewerRef.current.innerHTML = "";
@@ -124,40 +133,71 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
         flow: "paginated"
       });
 
-      // Register default image aspect ratio & paragraph styling rules
-      rend.themes.default({
-        'img': {
-          'max-width': '100% !important',
-          'max-height': '75vh !important',
-          'height': 'auto !important',
-          'width': 'auto !important',
-          'object-fit': 'contain !important',
-          'margin': '0 auto !important',
-          'display': 'block !important'
-        },
-        'svg': {
-          'max-width': '100% !important',
-          'max-height': '75vh !important',
-          'height': 'auto !important',
-          'margin': '0 auto !important',
-          'display': 'block !important'
-        },
-        'body': {
-          'padding': '10px 20px !important'
-        },
-        'p': {
-          'line-height': '1.6 !important'
+      // Register EpubJS content hooks to fix image scaling & aspect ratios inside iframe DOM
+      rend.hooks.content.register((contents: any) => {
+        contents.addStylesheetRules({
+          "img": {
+            "max-width": "100% !important",
+            "max-height": "75vh !important",
+            "width": "auto !important",
+            "height": "auto !important",
+            "object-fit": "contain !important",
+            "margin": "0 auto !important",
+            "display": "block !important"
+          },
+          "svg": {
+            "max-width": "100% !important",
+            "max-height": "75vh !important",
+            "width": "auto !important",
+            "height": "auto !important",
+            "margin": "0 auto !important",
+            "display": "block !important"
+          },
+          "svg image": {
+            "max-width": "100% !important",
+            "max-height": "75vh !important",
+            "width": "auto !important",
+            "height": "auto !important"
+          },
+          "body": {
+            "padding": "20px 40px !important",
+            "margin": "0 auto !important"
+          }
+        });
+
+        // Clean inline width/height and preserveAspectRatio on iframe DOM
+        const doc = contents.document;
+        if (doc) {
+          const svgs = doc.querySelectorAll('svg');
+          svgs.forEach((svg: any) => {
+            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+            svg.style.maxWidth = '100%';
+            svg.style.maxHeight = '75vh';
+            svg.style.height = 'auto';
+          });
+          const imgs = doc.querySelectorAll('img');
+          imgs.forEach((img: any) => {
+            img.style.objectFit = 'contain';
+            img.style.maxHeight = '75vh';
+            img.style.maxWidth = '100%';
+          });
         }
       });
 
       rend.display();
 
+      // Dictionary Selection Hook
+      rend.on("selected", (cfiRange: string, contents: any) => {
+        const selectionText = contents.window.getSelection().toString().trim();
+        if (selectionText && selectionText.length < 30 && /^[a-zA-Z]+$/.test(selectionText)) {
+          lookupWord(selectionText);
+        }
+      });
+
       rend.on("relocated", (location: any) => {
-        if (location && location.start) {
-          if (epubBook.locations && epubBook.locations.length()) {
-            const prog = epubBook.locations.percentageFromCfi(location.start.cfi);
-            setProgress(Math.round(prog * 100));
-          }
+        if (location && location.start && epubBook.locations && epubBook.locations.length()) {
+          const prog = epubBook.locations.percentageFromCfi(location.start.cfi);
+          setProgress(Math.round(prog * 100));
         }
       });
 
@@ -170,7 +210,6 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
         });
       });
 
-      // Keydown listener for keyboard page turning
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'ArrowRight') rend.next();
         if (e.key === 'ArrowLeft') rend.prev();
@@ -185,21 +224,58 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
     }
   }, [isReading, fileType, epubBook]);
 
-  // Apply theme & font size to EpubJS rendition
+  // Apply themes and font styling
   useEffect(() => {
     if (rendition) {
       const themeCss = 
         theme === 'dark' 
           ? { body: { background: '#020617 !important', color: '#f8fafc !important' } }
+          : theme === 'oled'
+          ? { body: { background: '#000000 !important', color: '#e2e8f0 !important' } }
           : theme === 'sepia'
           ? { body: { background: '#fbf0d9 !important', color: '#433422 !important' } }
           : { body: { background: '#ffffff !important', color: '#0f172a !important' } };
 
-      rendition.themes.register('customTheme', themeCss);
+      const fontCss = 
+        fontFamily === 'sans'
+          ? 'system-ui, -apple-system, sans-serif'
+          : fontFamily === 'mono'
+          ? 'Courier New, monospace'
+          : 'Georgia, serif';
+
+      rendition.themes.register('customTheme', {
+        ...themeCss,
+        'p, div, span, h1, h2, h3, h4': {
+          'font-family': `${fontCss} !important`
+        }
+      });
+
       rendition.themes.select('customTheme');
       rendition.themes.fontSize(`${fontSize}px`);
     }
-  }, [theme, fontSize, rendition]);
+  }, [theme, fontSize, fontFamily, rendition]);
+
+  // Dictionary Lookup Handler
+  const lookupWord = async (word: string) => {
+    const cleanWord = word.toLowerCase().trim();
+    setSelectedWord(cleanWord);
+    setDictionaryLoading(true);
+    setDictionaryData(null);
+
+    try {
+      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${cleanWord}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDictionaryData(data[0]);
+      } else {
+        setDictionaryData(null);
+      }
+    } catch (err) {
+      console.error("Dictionary lookup error:", err);
+    } finally {
+      setDictionaryLoading(false);
+    }
+  };
 
   const prevPage = () => {
     if (fileType === 'epub' && rendition) {
@@ -225,23 +301,13 @@ export default function ReaderWorkspace({ initialFormat }: ReaderWorkspaceProps)
 
 To Sherlock Holmes she is always THE woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex. It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind. He was, I take it, the most perfect reasoning and observing machine that the world has seen, but as a lover he would have placed himself in a false position.
 
-He never spoke of the softer passions, save with a gibe and a sneer. They were admirable things for the observer—excellent for drawing the veil from men's motives and actions. But for the trained reasoner to admit such intrusions into his own delicate and finely adjusted temperament was to introduce a distracting factor which might throw a doubt upon all his mental results.
-
-Grit in a sensitive instrument, or a crack in one of his own high-power lenses, would not be more disturbing than a strong emotion in a nature such as his. And yet there was but one woman to him, and that woman was the late Irene Adler, of dubious and questionable memory.`;
+He never spoke of the softer passions, save with a gibe and a sneer. They were admirable things for the observer—excellent for drawing the veil from men's motives and actions. But for the trained reasoner to admit such intrusions into his own delicate and finely adjusted temperament was to introduce a distracting factor which might throw a doubt upon all his mental results.`;
 
     const demoContent2 = `Chapter 2: The Red-Headed League
 
 I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last year and found him in deep conversation with a very stout, florid-faced, elderly gentleman with fiery red hair. With an apology for my intrusion, I was about to withdraw when Holmes pulled me abruptly into the room and closed the door behind me.
 
-"You could not have come at a better time, my dear Watson," he said cordially.
-
-"I was afraid that you were engaged."
-
-"I am so. Very much so."
-
-"Then I can wait in the adjoining room."
-
-"Not at all. This gentleman, Mr. Wilson, has been my partner and helper in many of my most successful cases, and I have no doubt that he will be of the same use to me in yours."`;
+"You could not have come at a better time, my dear Watson," he said cordially.`;
 
     setTextChapters([
       { title: "Chapter 1: A Scandal in Bohemia", content: demoContent1.replace(/\n/g, '<br/>') },
@@ -256,21 +322,12 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
     switch (theme) {
       case "dark":
         return "bg-slate-950 text-slate-100";
+      case "oled":
+        return "bg-black text-slate-100";
       case "sepia":
         return "bg-[#fbf0d9] text-[#433422]";
       default:
         return "bg-white text-slate-900";
-    }
-  };
-
-  const getFontFamilyClass = () => {
-    switch (fontFamily) {
-      case "sans":
-        return "font-sans";
-      case "mono":
-        return "font-mono";
-      default:
-        return "font-serif";
     }
   };
 
@@ -279,8 +336,8 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
       {loading && (
         <div className="p-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 max-w-xl mx-auto my-12">
           <div className="w-14 h-14 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Opening E-Book...</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Loading chapters, typography & table of contents into full-screen reader workspace.</p>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Opening E-Book Workspace...</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Rendering chapters, typography & table of contents.</p>
         </div>
       )}
 
@@ -332,18 +389,18 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-indigo-500 shrink-0" />
-                <span>Zero Server Uploads & Zero Storage</span>
+                <span>Instant Dictionary Word Lookup</span>
               </div>
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-amber-500 shrink-0" />
-                <span>Supports Light, Sepia & Dark Mode</span>
+                <span>Light, Sepia, Dark & OLED Themes</span>
               </div>
             </div>
           </div>
         </div>
       ) : isReading ? (
         <div className={`rounded-2xl shadow-2xl flex flex-col h-[calc(100vh-100px)] border border-slate-200 dark:border-slate-800 transition-colors ${getThemeClass()}`}>
-          {/* Top Reader Toolbar */}
+          {/* Reader Top Bar */}
           <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs shrink-0">
             <button
               onClick={() => {
@@ -365,7 +422,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
               <button
                 onClick={() => setFontFamily(fontFamily === "serif" ? "sans" : fontFamily === "sans" ? "mono" : "serif")}
                 className="px-2.5 py-1 rounded-md border border-slate-300 dark:border-slate-700 font-mono font-bold hover:bg-slate-100 dark:hover:bg-slate-800"
-                title="Toggle Font Family"
+                title="Toggle Typography Font"
               >
                 {fontFamily.toUpperCase()}
               </button>
@@ -388,14 +445,17 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                 <ZoomIn className="w-4 h-4" />
               </button>
 
+              {/* Theme Cycle: Light -> Sepia -> Dark -> OLED */}
               <button
-                onClick={() => setTheme(theme === "light" ? "sepia" : theme === "sepia" ? "dark" : "light")}
-                className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1"
+                onClick={() => setTheme(theme === "light" ? "sepia" : theme === "sepia" ? "dark" : theme === "dark" ? "oled" : "light")}
+                className="px-2.5 py-1 rounded-md border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 capitalize flex items-center gap-1"
                 title="Switch Reader Theme"
               >
-                {theme === "light" && <Sun className="w-4 h-4 text-amber-500" />}
-                {theme === "sepia" && <Book className="w-4 h-4 text-amber-700" />}
-                {theme === "dark" && <Moon className="w-4 h-4 text-indigo-400" />}
+                {theme === "light" && <Sun className="w-3.5 h-3.5 text-amber-500" />}
+                {theme === "sepia" && <Book className="w-3.5 h-3.5 text-amber-700" />}
+                {theme === "dark" && <Moon className="w-3.5 h-3.5 text-indigo-400" />}
+                {theme === "oled" && <Moon className="w-3.5 h-3.5 text-slate-400" />}
+                <span>{theme}</span>
               </button>
 
               {fileType === 'epub' && (
@@ -418,7 +478,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
             </div>
           </div>
 
-          {/* Main Reading Canvas Container */}
+          {/* Main Reading Area */}
           <div className="relative flex-1 flex overflow-hidden">
             {/* Table of Contents Drawer */}
             {showToc && toc.length > 0 && (
@@ -441,7 +501,38 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
               </div>
             )}
 
-            {/* Reading Viewport */}
+            {/* Dictionary Popup Modal */}
+            {selectedWord && (
+              <div className="absolute top-4 right-4 z-40 w-80 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-2 text-xs">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <div className="flex items-center gap-1.5 font-bold text-sm text-indigo-600 dark:text-indigo-400 capitalize">
+                    <Book className="w-4 h-4" />
+                    <span>{selectedWord}</span>
+                  </div>
+                  <button onClick={() => setSelectedWord(null)} className="p-1 text-slate-400 hover:text-slate-600">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {dictionaryLoading ? (
+                  <p className="text-slate-500 py-2">Searching dictionary definition...</p>
+                ) : dictionaryData ? (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {dictionaryData.phonetic && <p className="text-slate-400 font-mono text-[11px]">{dictionaryData.phonetic}</p>}
+                    {dictionaryData.meanings.slice(0, 2).map((m, idx) => (
+                      <div key={idx} className="space-y-1">
+                        <span className="font-semibold text-slate-700 dark:text-slate-300 italic">{m.partOfSpeech}:</span>
+                        <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{m.definitions[0]?.definition}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-slate-500 py-2">No dictionary definition found for &quot;{selectedWord}&quot;.</p>
+                )}
+              </div>
+            )}
+
+            {/* Reader Render Viewport */}
             <div className="flex-1 w-full h-full p-2 sm:p-6 flex items-center justify-center overflow-hidden">
               {fileType === 'epub' ? (
                 <div ref={viewerRef} className="w-full h-full flex items-center justify-center overflow-hidden" />
@@ -451,7 +542,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                     {textChapters[currentTextChapterIndex]?.title}
                   </h3>
                   <div
-                    className={`leading-relaxed space-y-4 ${getFontFamilyClass()}`}
+                    className="leading-relaxed space-y-4"
                     style={{ fontSize: `${fontSize}px` }}
                     dangerouslySetInnerHTML={{ __html: textChapters[currentTextChapterIndex]?.content || "" }}
                   />
