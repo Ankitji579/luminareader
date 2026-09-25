@@ -932,8 +932,8 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             {/* Right: Controls */}
             <div className="flex items-center gap-1.5 sm:gap-2">
               {/* Scroll Mode Toggle */}
-              <button onClick={() => setScrollMode(scrollMode === "horizontal" ? "vertical" : "horizontal")} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5" style={scrollMode === "vertical" ? btnActiveStyle : btnStyle} title="Switch between Page Flip and Vertical Scroll">
-                {scrollMode === "horizontal" ? <><MoveHorizontal className="w-3.5 h-3.5" /><span className="hidden md:inline">Flip Pages</span></> : <><MoveVertical className="w-3.5 h-3.5" /><span className="hidden md:inline">Vertical Scroll</span></>}
+              <button onClick={() => setScrollMode(scrollMode === "horizontal" ? "vertical" : "horizontal")} className="p-1.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center" style={scrollMode === "vertical" ? btnActiveStyle : btnStyle} title="Switch between Page Flip and Vertical Scroll">
+                {scrollMode === "horizontal" ? <MoveHorizontal className="w-4 h-4" /> : <MoveVertical className="w-4 h-4" />}
               </button>
 
               {/* Dictionary Launcher */}
