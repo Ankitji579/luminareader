@@ -1,3 +1,11 @@
+
+type PersistentHighlight = {
+  id: string;
+  chapterIndex: number;
+  startOffset: number;
+  endOffset: number;
+  colorId: string;
+};
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -339,7 +347,8 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   // Save text selection range so we can restore it after state updates
   const savedRangeRef = useRef<Range | null>(null);
   // Store persistent user highlights
-  const customHighlightsRef = useRef<{ id: string, range: Range, colorId: string }[]>([]);
+  // Type definition is above this now
+  const customHighlightsRef = useRef<PersistentHighlight[]>([]);
 
   // Short alias for current theme config
   const T = THEMES[theme];
@@ -715,20 +724,69 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   // Progress to show in bottom bar
   const displayProgress = scrollMode === "vertical" ? verticalProgress : horizontalProgress;
 
+  
   // ─── PERMANENT HIGHLIGHTER SYSTEM (CSS Custom Highlights) ────────────────
   
+  // DOM Walker to get exact character offsets relative to a container
+  const getSelectionOffsets = (container: HTMLElement, range: Range) => {
+    const preSelectionRange = range.cloneRange();
+    preSelectionRange.selectNodeContents(container);
+    preSelectionRange.setEnd(range.startContainer, range.startOffset);
+    const start = preSelectionRange.toString().length;
+    return { start, end: start + range.toString().length };
+  };
+
+  // DOM Walker to restore a Range from exact character offsets
+  const createRangeFromOffsets = (container: HTMLElement, start: number, end: number): Range | null => {
+    let charIndex = 0;
+    const range = document.createRange();
+    range.setStart(container, 0);
+    range.collapse(true);
+    
+    const nodeStack: Node[] = [container];
+    let node: Node | undefined;
+    let foundStart = false;
+    let stop = false;
+
+    while (!stop && (node = nodeStack.pop())) {
+      if (node.nodeType === 3) {
+        const textLength = node.nodeValue?.length || 0;
+        const nextCharIndex = charIndex + textLength;
+        
+        if (!foundStart && start >= charIndex && start <= nextCharIndex) {
+          range.setStart(node, start - charIndex);
+          foundStart = true;
+        }
+        if (foundStart && end >= charIndex && end <= nextCharIndex) {
+          range.setEnd(node, end - charIndex);
+          stop = true;
+        }
+        charIndex = nextCharIndex;
+      } else {
+        let i = node.childNodes.length;
+        while (i--) {
+          nodeStack.push(node.childNodes[i]);
+        }
+      }
+    }
+    return stop ? range : null;
+  };
+
   const renderCSSHighlights = useCallback(() => {
     if (typeof CSS === "undefined" || !("highlights" in CSS)) return;
     
-    // Group ranges by colorId
     const groups: Record<string, Range[]> = {};
     HIGHLIGHT_COLORS.forEach(c => groups[c.id] = []);
 
     customHighlightsRef.current.forEach(h => {
-      if (groups[h.colorId]) groups[h.colorId].push(h.range);
+      const article = document.getElementById(`chapter-container-${h.chapterIndex}`);
+      if (!article) return;
+      const range = createRangeFromOffsets(article, h.startOffset, h.endOffset);
+      if (range && groups[h.colorId]) {
+        groups[h.colorId].push(range);
+      }
     });
 
-    // Update global CSS highlights registry
     HIGHLIGHT_COLORS.forEach(c => {
       const highlightName = `lumina-hl-${c.id}`;
       try {
@@ -743,38 +801,54 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     });
   }, []);
 
-  const applyHighlightColor = useCallback((range: Range, color: typeof HIGHLIGHT_COLORS[0]) => {
-    // Check if the exact range exists
-    const existingIdx = customHighlightsRef.current.findIndex(h => {
-      return h.range.toString().trim() === range.toString().trim() && 
-             h.range.commonAncestorContainer === range.commonAncestorContainer;
-    });
-
-    if (existingIdx >= 0) {
-      // It exists -> Replace color
-      customHighlightsRef.current[existingIdx].colorId = color.id;
-    } else {
-      // Add new highlight
-      customHighlightsRef.current.push({ id: Date.now().toString(), range, colorId: color.id });
+  const saveHighlightsLocal = () => {
+    if (typeof window !== "undefined" && bookTitle) {
+      localStorage.setItem(`lumina_hl_${bookTitle}`, JSON.stringify(customHighlightsRef.current));
     }
+  };
 
+  const applyHighlightColor = useCallback((range: Range, color: typeof HIGHLIGHT_COLORS[0]) => {
+    let container: HTMLElement | null = range.commonAncestorContainer as HTMLElement;
+    if (container.nodeType === 3) container = container.parentElement;
+    const article = container?.closest('article[id^="chapter-container-"]');
+    
+    if (!article) return;
+    const chapterIndex = parseInt(article.id.replace('chapter-container-', ''), 10);
+    const { start, end } = getSelectionOffsets(article as HTMLElement, range);
+    
+    customHighlightsRef.current.push({
+      id: Date.now().toString(),
+      chapterIndex,
+      startOffset: start,
+      endOffset: end,
+      colorId: color.id
+    });
+    
+    saveHighlightsLocal();
     renderCSSHighlights();
-  }, [renderCSSHighlights]);
+  }, [renderCSSHighlights, bookTitle]);
 
   const eraseHighlights = useCallback((range: Range) => {
-    // Find all highlights that intersect with the erased range
+    let container: HTMLElement | null = range.commonAncestorContainer as HTMLElement;
+    if (container.nodeType === 3) container = container.parentElement;
+    const article = container?.closest('article[id^="chapter-container-"]');
+    if (!article) return;
+    const chapterIndex = parseInt(article.id.replace('chapter-container-', ''), 10);
+    const { start, end } = getSelectionOffsets(article as HTMLElement, range);
+
     customHighlightsRef.current = customHighlightsRef.current.filter(h => {
-      // Does h.range intersect with range?
-      // An intersection happens if range starts before h.range ends AND range ends after h.range starts
-      const startsBeforeOtherEnds = range.compareBoundaryPoints(Range.START_TO_END, h.range) <= 0;
-      const endsAfterOtherStarts = range.compareBoundaryPoints(Range.END_TO_START, h.range) >= 0;
-      const intersects = startsBeforeOtherEnds && endsAfterOtherStarts;
-      
-      return !intersects; // KEEP highlights that DO NOT intersect
+      if (h.chapterIndex !== chapterIndex) return true;
+      // Intersection math on character offsets
+      const overlap = Math.max(start, h.startOffset) < Math.min(end, h.endOffset);
+      return !overlap;
     });
 
+    saveHighlightsLocal();
     renderCSSHighlights();
-  }, [renderCSSHighlights]);
+  }, [renderCSSHighlights, bookTitle]);
+
+
+  
 
   // Re-apply highlights whenever the component re-renders (like during theme or font changes)
   // because React updating the <style> tags might clear the CSS custom highlights registry in some browsers.
@@ -1317,7 +1391,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                 {scrollMode === "vertical" ? (
                   <div className="max-w-3xl mx-auto w-full space-y-16 pb-24">
                     {chapters.map((ch, idx) => (
-                      <article key={ch.id || idx} className="space-y-6" style={{ borderBottom: `1px solid ${T.toolbarBorder}`, paddingBottom: "4rem" }}>
+                      <article id={`chapter-container-${idx}`} key={ch.id || idx} className="space-y-6" style={{ borderBottom: `1px solid ${T.toolbarBorder}`, paddingBottom: "4rem" }}>
                         <header className="pb-3" style={{ borderBottom: `1px solid ${T.toolbarBorder}` }}>
                           <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: T.panelAccent }}>Chapter {idx + 1} of {chapters.length}</span>
                           <h2 className="text-2xl sm:text-3xl font-extrabold mt-1 tracking-tight" style={{ color: T.text }}>{ch.title}</h2>
@@ -1329,7 +1403,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                 ) : (
                   <div className="max-w-3xl mx-auto w-full pb-20 pt-4">
                     {currentChapter ? (
-                      <article className="space-y-6">
+                      <article id={`chapter-container-${currentChapterIndex}`} className="space-y-6">
                         <header className="pb-3" style={{ borderBottom: `1px solid ${T.toolbarBorder}` }}>
                           <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: T.panelAccent }}>Chapter {currentChapterIndex + 1} of {chapters.length}</span>
                           <h2 className="text-2xl sm:text-3xl font-extrabold mt-1 tracking-tight" style={{ color: T.text }}>{currentChapter.title}</h2>
