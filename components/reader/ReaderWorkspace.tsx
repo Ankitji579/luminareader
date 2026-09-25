@@ -9,6 +9,8 @@ type PersistentHighlight = {
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useTheme as useNextTheme } from "next-themes";
+
 import localforage from "localforage";
 import { Clock, Trash2, Library, Save } from "lucide-react";
 import {
@@ -356,6 +358,23 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   const [fontSize, setFontSize] = useState<number>(19);
   const [zoomScale, setZoomScale] = useState<number>(100);
   const [theme, setTheme] = useState<ThemeName>("light");
+  const { resolvedTheme, setTheme: setNextTheme } = useNextTheme();
+
+  // Sync initial reader theme with global Next.js theme
+  useEffect(() => {
+    if (resolvedTheme === "dark") {
+      setTheme("dark");
+    } else {
+      setTheme("light");
+    }
+  }, [resolvedTheme]);
+
+  const changeTheme = (newTheme: ThemeName) => {
+    setTheme(newTheme);
+    if (setNextTheme) {
+      setNextTheme(newTheme === "light" || newTheme === "sepia" ? "light" : "dark");
+    }
+  };
   const [selectedFont, setSelectedFont] = useState<FontOption>(GOOGLE_FONTS[0]);
   const [scrollMode, setScrollMode] = useState<"horizontal" | "vertical">("horizontal");
 
@@ -1466,7 +1485,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                       {THEME_ORDER.map((tid) => {
                         const t = THEMES[tid]; const isActive = theme === tid;
                         return (
-                          <button key={tid} onClick={() => { setTheme(tid); setShowThemePicker(false); }} className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold transition-all"
+                          <button key={tid} onClick={() => { changeTheme(tid); setShowThemePicker(false); }} className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold transition-all"
                             style={{ background: isActive ? T.panelAccent : T.panelItemBg, color: isActive ? T.panelAccentText : T.panelText, border: isActive ? `1.5px solid ${T.panelAccent}` : `1px solid ${T.panelBorder}` }}>
                             <span className="text-base leading-none">{t.emoji}</span><span>{t.name}</span>
                           </button>
@@ -1701,7 +1720,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
               >
                 {fileType === "pdf" && currentFile ? (
                    <div className="w-full h-full p-4 sm:p-10" style={{ background: T.bg }}>
-                     <PdfViewer file={currentFile} zoomScale={zoomScale} />
+                     <PdfViewer file={currentFile} zoomScale={zoomScale} isDark={resolvedTheme === "dark"} />
                    </div>
                 ) : scrollMode === "vertical" ? (
                   <div className="max-w-3xl mx-auto w-full space-y-16 pb-24">

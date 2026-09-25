@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useTheme } from 'next-themes';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Safe worker loading for Next.js (bypasses cross-origin worker CORS issues)
@@ -8,11 +7,7 @@ if (typeof window !== "undefined") {
   pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 }
 
-export default function PdfViewer({ file, zoomScale }: { file: File | Blob; zoomScale: number }) {
-  const { theme, systemTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const isDark = mounted && (theme === "dark" || (theme === "system" && systemTheme === "dark"));
+export default function PdfViewer({ file, zoomScale, isDark }: { file: File | Blob; zoomScale: number; isDark: boolean }) {
   const [pdf, setPdf] = useState<any>(null);
   const [numPages, setNumPages] = useState(0);
   const [error, setError] = useState<string | null>(null);
