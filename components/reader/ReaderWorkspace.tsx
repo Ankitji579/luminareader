@@ -686,9 +686,9 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
       if (!isReading) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
-        e.preventDefault(); triggerPageTurn("next");
+        if (scrollMode === "horizontal") { e.preventDefault(); triggerPageTurn("next"); }
       } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
-        e.preventDefault(); triggerPageTurn("prev");
+        if (scrollMode === "horizontal") { e.preventDefault(); triggerPageTurn("prev"); }
       } else if (e.key === "Escape") {
         if (selectedWord) { closeDictionaryBubble(); return; }
         if (showThemePicker) { setShowThemePicker(false); return; }
@@ -876,6 +876,33 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
   // ─── INTERNAL LINK HANDLING ────────────────────────────────────────────────
 
+
+  const jumpToChapter = useCallback((chapterIdx: number, anchor?: string) => {
+    setCurrentChapterIndex(chapterIdx);
+    setTimeout(() => {
+      if (scrollMode === "vertical") {
+        if (anchor) {
+          const el = document.getElementById(anchor) || document.querySelector(`[name="${anchor}"]`);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+            return;
+          }
+        }
+        const chEl = document.getElementById(`chapter-${chapterIdx}`);
+        if (chEl) chEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        if (anchor) {
+          const el = document.getElementById(anchor) || document.querySelector(`[name="${anchor}"]`);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+            return;
+          }
+        }
+        if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+      }
+    }, 50);
+  }, [scrollMode]);
+
   const handleContentClick = (e: React.MouseEvent) => {
     const anchorEl = (e.target as HTMLElement).closest("a");
     if (anchorEl) {
@@ -887,9 +914,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         const fileToFind = (targetFile || href || "").split("#")[0].split("/").pop() || "";
         const targetIdx = pathMap[fileToFind] ?? (targetFile ? pathMap[targetFile] : undefined);
         if (typeof targetIdx === "number" && targetIdx >= 0 && targetIdx < chapters.length) {
-          setCurrentChapterIndex(targetIdx);
-          if (anchor) setTimeout(() => { const el = document.getElementById(anchor) || document.querySelector(`[name="${anchor}"]`); el?.scrollIntoView({ behavior: "smooth" }); }, 100);
-          if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
+          jumpToChapter(targetIdx, anchor || undefined);
           return;
         }
       }
@@ -1522,7 +1547,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                   <button onClick={() => setShowToc(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
                 </div>
                 {toc.map((item, idx) => (
-                  <button key={idx} onClick={() => { setCurrentChapterIndex(item.chapterIndex); setShowToc(false); if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0; }} className="w-full text-left p-2.5 rounded-xl transition-colors truncate font-medium"
+                  <button key={idx} onClick={() => { setShowToc(false); jumpToChapter(item.chapterIndex, item.anchor); }} className="w-full text-left p-2.5 rounded-xl transition-colors truncate font-medium"
                     style={currentChapterIndex === item.chapterIndex ? { background: T.panelAccent, color: T.tocActiveText } : { background: "transparent", color: T.panelText }}
                     onMouseEnter={(e) => { if (currentChapterIndex !== item.chapterIndex) (e.currentTarget as HTMLElement).style.background = T.panelItemBg; }}
                     onMouseLeave={(e) => { if (currentChapterIndex !== item.chapterIndex) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
