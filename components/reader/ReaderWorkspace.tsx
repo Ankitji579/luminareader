@@ -948,8 +948,13 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
               {/* Bookmarks List */}
               <div className="relative">
-                <button onClick={() => setShowBookmarks(!showBookmarks)} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1" style={showBookmarks ? btnActiveStyle : btnStyle} title="View Bookmarks">
-                  <List className="w-3.5 h-3.5" /><span className="hidden md:inline">Bookmarks {bookmarks.length > 0 && `(${bookmarks.length})`}</span>
+                <button onClick={() => setShowBookmarks(!showBookmarks)} className="p-1.5 rounded-lg text-xs font-semibold transition-colors relative flex items-center justify-center" style={showBookmarks ? btnActiveStyle : btnStyle} title="View Bookmarks">
+                  <List className="w-4 h-4" />
+                  {bookmarks.length > 0 && (
+                    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[14px] h-[14px] px-0.5 rounded-full text-[8px] font-extrabold shadow-sm" style={{ background: T.panelAccent, color: T.panelAccentText }}>
+                      {bookmarks.length}
+                    </span>
+                  )}
                 </button>
                 {showBookmarks && (
                   <div className="absolute right-0 top-11 z-50 w-72 p-3 rounded-2xl shadow-2xl space-y-2" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
@@ -1026,10 +1031,8 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
               {/* Font Selector */}
               <div className="relative">
-                <button onClick={() => setShowFontMenu(!showFontMenu)} className="px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5" style={showFontMenu ? btnActiveStyle : btnStyle} title="Choose from 116 Google Fonts">
-                  <Type className="w-3.5 h-3.5" />
-                  <span className="truncate max-w-[70px] sm:max-w-[100px]">{selectedFont.name}</span>
-                  <ChevronDown className="w-3 h-3 opacity-60" />
+                <button onClick={() => setShowFontMenu(!showFontMenu)} className="p-1.5 rounded-lg flex items-center justify-center transition-colors" style={showFontMenu ? btnActiveStyle : btnStyle} title={`Choose Font (Current: ${selectedFont.name})`}>
+                  <Type className="w-4 h-4" />
                 </button>
                 {showFontMenu && (
                   <div className="absolute right-0 top-11 z-50 w-80 p-3 rounded-2xl shadow-2xl space-y-2.5" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
