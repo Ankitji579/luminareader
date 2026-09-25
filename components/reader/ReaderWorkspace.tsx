@@ -685,7 +685,12 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   // ─── APPLY HIGHLIGHT ──────────────────────────────────────────────────────
   // Re-applies the saved range, wraps it in a <mark> span with chosen color
 
-  const applyHighlight = () => {
+  const applyHighlight = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
     const range = savedRangeRef.current;
     if (!range) return;
 
@@ -697,39 +702,29 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     }
 
     try {
-      // Wrap range contents in a styled mark element
-      const mark = document.createElement("mark");
-      mark.style.backgroundColor = activeHighlightColor.bg;
-      mark.style.borderRadius = "3px";
-      mark.style.padding = "0 2px";
-      mark.style.boxShadow = `0 0 0 1px ${activeHighlightColor.border}40`;
-      mark.style.transition = "background-color 0.2s ease";
-      mark.dataset.luminaHighlight = activeHighlightColor.id;
-
-      // Check if range is within a content div (not toolbar)
-      const container = range.commonAncestorContainer;
-      const isInContent = scrollContainerRef.current?.contains(container);
-      if (!isInContent) return;
-
-      // Avoid nesting marks — extract and re-wrap
-      range.surroundContents(mark);
-    } catch {
-      // If surroundContents fails (e.g. partial element boundary), use insertNode approach
+      // Temporarily enable design mode to use native browser highlighting
+      // This safely handles cross-boundary selections and complex DOM structures
+      document.designMode = "on";
+      document.execCommand("backColor", false, activeHighlightColor.bg);
+      document.execCommand("HiliteColor", false, activeHighlightColor.bg);
+      document.designMode = "off";
+    } catch (err) {
+      console.warn("execCommand failed, attempting fallback", err);
       try {
-        const fragment = range.extractContents();
         const mark = document.createElement("mark");
         mark.style.backgroundColor = activeHighlightColor.bg;
         mark.style.borderRadius = "3px";
         mark.style.padding = "0 2px";
         mark.style.boxShadow = `0 0 0 1px ${activeHighlightColor.border}40`;
-        mark.dataset.luminaHighlight = activeHighlightColor.id;
-        mark.appendChild(fragment);
-        range.insertNode(mark);
-      } catch { /* ignore */ }
+        mark.style.color = "inherit";
+        range.surroundContents(mark);
+      } catch (err2) {
+        console.error("Highlighter failed completely", err2);
+      }
     }
 
     // Clear selection after highlighting
-    window.getSelection()?.removeAllRanges();
+    if (sel) sel.removeAllRanges();
     savedRangeRef.current = null;
     setSelectedWord(null);
   };
