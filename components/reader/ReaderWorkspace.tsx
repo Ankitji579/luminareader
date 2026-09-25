@@ -938,29 +938,29 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
               </div>
 
               {/* Highlighter Tool */}
-              <div className="flex items-center rounded-lg overflow-hidden" style={{ border: `1px solid ${T.btnBorder}`, background: T.btnBg }}>
-                {/* Mode Toggle Button */}
-                <button 
-                  onClick={() => { setIsHighlightMode(!isHighlightMode); setIsEraserMode(false); }} 
-                  className="px-3 py-1.5 flex items-center transition-colors border-r" 
-                  style={isHighlightMode ? { background: activeHighlightColor.bg, borderColor: T.btnBorder } : { background: "transparent", borderColor: T.btnBorder }} 
-                  title="Highlighter Mode"
-                >
-                  <Highlighter className="w-4 h-4" style={!isHighlightMode ? { color: activeHighlightColor.border } : { color: T.text }} />
-                </button>
+              <div className="relative flex items-center">
+                <div className="flex items-center rounded-lg overflow-hidden" style={{ border: `1px solid ${T.btnBorder}`, background: T.btnBg }}>
+                  {/* Mode Toggle Button */}
+                  <button 
+                    onClick={() => { setIsHighlightMode(!isHighlightMode); setIsEraserMode(false); }} 
+                    className="px-3 py-1.5 flex items-center transition-colors border-r" 
+                    style={isHighlightMode ? { background: activeHighlightColor.bg, borderColor: T.btnBorder } : { background: "transparent", borderColor: T.btnBorder }} 
+                    title="Highlighter Mode"
+                  >
+                    <Highlighter className="w-4 h-4" style={!isHighlightMode ? { color: activeHighlightColor.border } : { color: T.text }} />
+                  </button>
 
-                {/* Eraser Mode Toggle */}
-                <button 
-                  onClick={() => { setIsEraserMode(!isEraserMode); setIsHighlightMode(false); }}
-                  className="px-3 py-1.5 flex items-center transition-colors border-r"
-                  style={isEraserMode ? { background: T.panelAccent, color: T.panelAccentText, borderColor: T.btnBorder } : { background: "transparent", color: T.btnText, borderColor: T.btnBorder }}
-                  title="Eraser Mode"
-                >
-                  <Eraser className="w-4 h-4" />
-                </button>
+                  {/* Eraser Mode Toggle */}
+                  <button 
+                    onClick={() => { setIsEraserMode(!isEraserMode); setIsHighlightMode(false); }}
+                    className="px-3 py-1.5 flex items-center transition-colors border-r"
+                    style={isEraserMode ? { background: T.panelAccent, color: T.panelAccentText, borderColor: T.btnBorder } : { background: "transparent", color: T.btnText, borderColor: T.btnBorder }}
+                    title="Eraser Mode"
+                  >
+                    <Eraser className="w-4 h-4" />
+                  </button>
 
-                {/* Color Picker Dropdown */}
-                <div className="relative">
+                  {/* Color Picker Toggle */}
                   <button 
                     onClick={() => setShowHighlightPicker(!showHighlightPicker)} 
                     className="px-2 py-1.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors h-full flex items-center gap-1.5" 
@@ -969,21 +969,23 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                     <div className="w-3.5 h-3.5 rounded-full shadow-sm" style={{ background: activeHighlightColor.bg, border: `1px solid ${activeHighlightColor.border}` }} />
                     <ChevronDown className="w-3 h-3" style={{ color: T.btnText }} />
                   </button>
-                  {showHighlightPicker && (
-                    <div className="absolute right-0 top-11 z-50 w-48 p-2 rounded-2xl shadow-2xl space-y-1" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
-                      <div className="flex items-center justify-between pb-2 mb-1" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
-                        <span className="font-bold text-xs px-1">Colors</span>
-                        <button onClick={() => setShowHighlightPicker(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
-                      </div>
-                      {HIGHLIGHT_COLORS.map(color => (
-                        <button key={color.id} onClick={() => { setActiveHighlightColor(color); setIsHighlightMode(true); setIsEraserMode(false); setShowHighlightPicker(false); }} className="w-full flex items-center gap-2 px-2 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105" style={{ background: color.bg, color: T.text, border: `1px solid ${color.border}`, opacity: activeHighlightColor.id === color.id ? 1 : 0.6 }}>
-                          <span className="w-3 h-3 rounded-full" style={{ background: color.border }} />
-                          {color.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
+
+                {/* Color Picker Dropdown (Safely outside the overflow-hidden box!) */}
+                {showHighlightPicker && (
+                  <div className="absolute right-0 top-11 z-50 w-48 p-2 rounded-2xl shadow-2xl space-y-1" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
+                    <div className="flex items-center justify-between pb-2 mb-1" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
+                      <span className="font-bold text-xs px-1">Colors</span>
+                      <button onClick={() => setShowHighlightPicker(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
+                    </div>
+                    {HIGHLIGHT_COLORS.map(color => (
+                      <button key={color.id} onClick={() => { setActiveHighlightColor(color); setIsHighlightMode(true); setIsEraserMode(false); setShowHighlightPicker(false); }} className="w-full flex items-center gap-2 px-2 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105" style={{ background: color.bg, color: T.text, border: `1px solid ${color.border}`, opacity: activeHighlightColor.id === color.id ? 1 : 0.6 }}>
+                        <span className="w-3 h-3 rounded-full" style={{ background: color.border }} />
+                        {color.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Font Selector */}
