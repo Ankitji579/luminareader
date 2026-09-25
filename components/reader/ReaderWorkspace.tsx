@@ -6,7 +6,7 @@ import {
   List, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2,
   Search, X, Type, ChevronDown, HelpCircle, RotateCcw,
   Volume2, MoveVertical, MoveHorizontal, Compass, Maximize2, Minimize2,
-  ChevronLeft, ChevronRight, Palette,
+  ChevronLeft, ChevronRight, Palette, Bookmark, BookmarkCheck, Globe,
 } from "lucide-react";
 import { parseEpubArchive, ParsedBook, ParsedChapter, TocItem } from "@/lib/epub-parser";
 import { GOOGLE_FONTS, FontOption } from "@/lib/fonts-data";
@@ -15,541 +15,232 @@ import { lookupWordComprehensive, DictionaryResult } from "@/lib/dictionary-serv
 // ─── THEME SYSTEM ──────────────────────────────────────────────────────────────
 
 export type ThemeName =
-  | "light"
-  | "sepia"
-  | "dark"
-  | "oled"
-  | "forest"
-  | "nord"
-  | "solarized"
-  | "gruvbox"
-  | "catppuccin"
-  | "rosepine"
-  | "dracula"
-  | "tokyonight"
-  | "amber"
-  | "midnight"
-  | "highcontrast"
-  | "paper";
+  | "light" | "sepia" | "dark" | "oled" | "forest" | "nord"
+  | "solarized" | "gruvbox" | "catppuccin" | "rosepine" | "dracula"
+  | "tokyonight" | "amber" | "midnight" | "highcontrast" | "paper";
 
 interface ThemeConfig {
-  name: string;
-  emoji: string;
-  // Reader surface
-  bg: string;
-  text: string;
-  subtext: string;
-  // Toolbar / chrome
-  toolbarBg: string;
-  toolbarBorder: string;
-  toolbarText: string;
-  // Buttons in toolbar
-  btnBg: string;
-  btnText: string;
-  btnBorder: string;
-  btnHoverBg: string;
-  btnActiveBg: string;
-  btnActiveText: string;
-  // Dictionary / bubble panel
-  panelBg: string;
-  panelBorder: string;
-  panelText: string;
-  panelSubtext: string;
-  panelAccent: string;
-  panelAccentText: string;
-  panelItemBg: string;
-  // Progress bar
-  progressFg: string;
-  progressBg: string;
-  // TOC
-  tocBg: string;
-  tocBorder: string;
-  tocActiveText: string;
-  // Prose (chapter content)
-  proseBg: string;
-  proseText: string;
+  name: string; emoji: string;
+  bg: string; text: string; subtext: string;
+  toolbarBg: string; toolbarBorder: string; toolbarText: string;
+  btnBg: string; btnText: string; btnBorder: string;
+  btnHoverBg: string; btnActiveBg: string; btnActiveText: string;
+  panelBg: string; panelBorder: string; panelText: string;
+  panelSubtext: string; panelAccent: string; panelAccentText: string; panelItemBg: string;
+  progressFg: string; progressBg: string;
+  progressGrad: string; // gradient for fancy progress bar
+  tocBg: string; tocBorder: string; tocActiveText: string;
+  proseBg: string; proseText: string;
 }
 
 export const THEMES: Record<ThemeName, ThemeConfig> = {
   light: {
-    name: "Light",
-    emoji: "☀️",
-    bg: "#ffffff",
-    text: "#1e293b",
-    subtext: "#64748b",
-    toolbarBg: "#f8fafc",
-    toolbarBorder: "#e2e8f0",
-    toolbarText: "#1e293b",
-    btnBg: "#f1f5f9",
-    btnText: "#334155",
-    btnBorder: "#cbd5e1",
-    btnHoverBg: "#e2e8f0",
-    btnActiveBg: "#4f46e5",
-    btnActiveText: "#ffffff",
-    panelBg: "#ffffff",
-    panelBorder: "#e2e8f0",
-    panelText: "#1e293b",
-    panelSubtext: "#64748b",
-    panelAccent: "#4f46e5",
-    panelAccentText: "#ffffff",
-    panelItemBg: "#f8fafc",
-    progressFg: "#4f46e5",
-    progressBg: "#e2e8f0",
-    tocBg: "#f8fafc",
-    tocBorder: "#e2e8f0",
-    tocActiveText: "#ffffff",
-    proseBg: "#ffffff",
-    proseText: "#1e293b",
+    name: "Light", emoji: "☀️",
+    bg: "#ffffff", text: "#1e293b", subtext: "#64748b",
+    toolbarBg: "#f8fafc", toolbarBorder: "#e2e8f0", toolbarText: "#1e293b",
+    btnBg: "#f1f5f9", btnText: "#334155", btnBorder: "#cbd5e1", btnHoverBg: "#e2e8f0",
+    btnActiveBg: "#4f46e5", btnActiveText: "#ffffff",
+    panelBg: "#ffffff", panelBorder: "#e2e8f0", panelText: "#1e293b",
+    panelSubtext: "#64748b", panelAccent: "#4f46e5", panelAccentText: "#ffffff", panelItemBg: "#f8fafc",
+    progressFg: "#4f46e5", progressBg: "#e2e8f0",
+    progressGrad: "linear-gradient(90deg, #6366f1, #8b5cf6, #4f46e5)",
+    tocBg: "#f8fafc", tocBorder: "#e2e8f0", tocActiveText: "#ffffff",
+    proseBg: "#ffffff", proseText: "#1e293b",
   },
   sepia: {
-    name: "Sepia",
-    emoji: "📜",
-    bg: "#fbf0d9",
-    text: "#433422",
-    subtext: "#7c6448",
-    toolbarBg: "#f5e6c4",
-    toolbarBorder: "#d4b896",
-    toolbarText: "#433422",
-    btnBg: "#ecdcc0",
-    btnText: "#5a3e28",
-    btnBorder: "#c4a27a",
-    btnHoverBg: "#e0ccaa",
-    btnActiveBg: "#8b5e3c",
-    btnActiveText: "#fff8ee",
-    panelBg: "#fdf6e3",
-    panelBorder: "#d4b896",
-    panelText: "#433422",
-    panelSubtext: "#7c6448",
-    panelAccent: "#8b5e3c",
-    panelAccentText: "#fff8ee",
-    panelItemBg: "#f5e6c8",
-    progressFg: "#8b5e3c",
-    progressBg: "#d4b896",
-    tocBg: "#f5e6c4",
-    tocBorder: "#d4b896",
-    tocActiveText: "#fff8ee",
-    proseBg: "#fbf0d9",
-    proseText: "#433422",
+    name: "Sepia", emoji: "📜",
+    bg: "#fbf0d9", text: "#433422", subtext: "#7c6448",
+    toolbarBg: "#f5e6c4", toolbarBorder: "#d4b896", toolbarText: "#433422",
+    btnBg: "#ecdcc0", btnText: "#5a3e28", btnBorder: "#c4a27a", btnHoverBg: "#e0ccaa",
+    btnActiveBg: "#8b5e3c", btnActiveText: "#fff8ee",
+    panelBg: "#fdf6e3", panelBorder: "#d4b896", panelText: "#433422",
+    panelSubtext: "#7c6448", panelAccent: "#8b5e3c", panelAccentText: "#fff8ee", panelItemBg: "#f5e6c8",
+    progressFg: "#8b5e3c", progressBg: "#d4b896",
+    progressGrad: "linear-gradient(90deg, #c8893c, #a0612a, #8b5e3c)",
+    tocBg: "#f5e6c4", tocBorder: "#d4b896", tocActiveText: "#fff8ee",
+    proseBg: "#fbf0d9", proseText: "#433422",
   },
   dark: {
-    name: "Dark",
-    emoji: "🌙",
-    bg: "#0f172a",
-    text: "#e2e8f0",
-    subtext: "#94a3b8",
-    toolbarBg: "#1e293b",
-    toolbarBorder: "#334155",
-    toolbarText: "#e2e8f0",
-    btnBg: "#334155",
-    btnText: "#cbd5e1",
-    btnBorder: "#475569",
-    btnHoverBg: "#475569",
-    btnActiveBg: "#6366f1",
-    btnActiveText: "#ffffff",
-    panelBg: "#1e293b",
-    panelBorder: "#334155",
-    panelText: "#e2e8f0",
-    panelSubtext: "#94a3b8",
-    panelAccent: "#6366f1",
-    panelAccentText: "#ffffff",
-    panelItemBg: "#0f172a",
-    progressFg: "#6366f1",
-    progressBg: "#334155",
-    tocBg: "#1e293b",
-    tocBorder: "#334155",
-    tocActiveText: "#ffffff",
-    proseBg: "#0f172a",
-    proseText: "#e2e8f0",
+    name: "Dark", emoji: "🌙",
+    bg: "#0f172a", text: "#e2e8f0", subtext: "#94a3b8",
+    toolbarBg: "#1e293b", toolbarBorder: "#334155", toolbarText: "#e2e8f0",
+    btnBg: "#334155", btnText: "#cbd5e1", btnBorder: "#475569", btnHoverBg: "#475569",
+    btnActiveBg: "#6366f1", btnActiveText: "#ffffff",
+    panelBg: "#1e293b", panelBorder: "#334155", panelText: "#e2e8f0",
+    panelSubtext: "#94a3b8", panelAccent: "#6366f1", panelAccentText: "#ffffff", panelItemBg: "#0f172a",
+    progressFg: "#6366f1", progressBg: "#334155",
+    progressGrad: "linear-gradient(90deg, #818cf8, #a78bfa, #6366f1)",
+    tocBg: "#1e293b", tocBorder: "#334155", tocActiveText: "#ffffff",
+    proseBg: "#0f172a", proseText: "#e2e8f0",
   },
   oled: {
-    name: "OLED",
-    emoji: "⚫",
-    bg: "#000000",
-    text: "#ffffff",
-    subtext: "#a1a1aa",
-    toolbarBg: "#0a0a0a",
-    toolbarBorder: "#27272a",
-    toolbarText: "#ffffff",
-    btnBg: "#18181b",
-    btnText: "#d4d4d8",
-    btnBorder: "#3f3f46",
-    btnHoverBg: "#27272a",
-    btnActiveBg: "#7c3aed",
-    btnActiveText: "#ffffff",
-    panelBg: "#0a0a0a",
-    panelBorder: "#27272a",
-    panelText: "#ffffff",
-    panelSubtext: "#a1a1aa",
-    panelAccent: "#7c3aed",
-    panelAccentText: "#ffffff",
-    panelItemBg: "#18181b",
-    progressFg: "#7c3aed",
-    progressBg: "#27272a",
-    tocBg: "#0a0a0a",
-    tocBorder: "#27272a",
-    tocActiveText: "#ffffff",
-    proseBg: "#000000",
-    proseText: "#ffffff",
+    name: "OLED", emoji: "⚫",
+    bg: "#000000", text: "#ffffff", subtext: "#a1a1aa",
+    toolbarBg: "#0a0a0a", toolbarBorder: "#27272a", toolbarText: "#ffffff",
+    btnBg: "#18181b", btnText: "#d4d4d8", btnBorder: "#3f3f46", btnHoverBg: "#27272a",
+    btnActiveBg: "#7c3aed", btnActiveText: "#ffffff",
+    panelBg: "#0a0a0a", panelBorder: "#27272a", panelText: "#ffffff",
+    panelSubtext: "#a1a1aa", panelAccent: "#7c3aed", panelAccentText: "#ffffff", panelItemBg: "#18181b",
+    progressFg: "#7c3aed", progressBg: "#27272a",
+    progressGrad: "linear-gradient(90deg, #a78bfa, #c4b5fd, #7c3aed)",
+    tocBg: "#0a0a0a", tocBorder: "#27272a", tocActiveText: "#ffffff",
+    proseBg: "#000000", proseText: "#ffffff",
   },
   forest: {
-    name: "Forest",
-    emoji: "🌲",
-    bg: "#071f12",
-    text: "#d1fae5",
-    subtext: "#6ee7b7",
-    toolbarBg: "#0d2e1a",
-    toolbarBorder: "#166534",
-    toolbarText: "#d1fae5",
-    btnBg: "#14532d",
-    btnText: "#86efac",
-    btnBorder: "#15803d",
-    btnHoverBg: "#166534",
-    btnActiveBg: "#16a34a",
-    btnActiveText: "#f0fdf4",
-    panelBg: "#0d2e1a",
-    panelBorder: "#166534",
-    panelText: "#d1fae5",
-    panelSubtext: "#6ee7b7",
-    panelAccent: "#16a34a",
-    panelAccentText: "#f0fdf4",
-    panelItemBg: "#071f12",
-    progressFg: "#16a34a",
-    progressBg: "#166534",
-    tocBg: "#0d2e1a",
-    tocBorder: "#166534",
-    tocActiveText: "#f0fdf4",
-    proseBg: "#071f12",
-    proseText: "#d1fae5",
+    name: "Forest", emoji: "🌲",
+    bg: "#071f12", text: "#d1fae5", subtext: "#6ee7b7",
+    toolbarBg: "#0d2e1a", toolbarBorder: "#166534", toolbarText: "#d1fae5",
+    btnBg: "#14532d", btnText: "#86efac", btnBorder: "#15803d", btnHoverBg: "#166534",
+    btnActiveBg: "#16a34a", btnActiveText: "#f0fdf4",
+    panelBg: "#0d2e1a", panelBorder: "#166534", panelText: "#d1fae5",
+    panelSubtext: "#6ee7b7", panelAccent: "#16a34a", panelAccentText: "#f0fdf4", panelItemBg: "#071f12",
+    progressFg: "#16a34a", progressBg: "#166534",
+    progressGrad: "linear-gradient(90deg, #4ade80, #86efac, #16a34a)",
+    tocBg: "#0d2e1a", tocBorder: "#166534", tocActiveText: "#f0fdf4",
+    proseBg: "#071f12", proseText: "#d1fae5",
   },
   nord: {
-    name: "Nord",
-    emoji: "❄️",
-    bg: "#2e3440",
-    text: "#eceff4",
-    subtext: "#88c0d0",
-    toolbarBg: "#3b4252",
-    toolbarBorder: "#434c5e",
-    toolbarText: "#eceff4",
-    btnBg: "#434c5e",
-    btnText: "#d8dee9",
-    btnBorder: "#4c566a",
-    btnHoverBg: "#4c566a",
-    btnActiveBg: "#81a1c1",
-    btnActiveText: "#2e3440",
-    panelBg: "#3b4252",
-    panelBorder: "#434c5e",
-    panelText: "#eceff4",
-    panelSubtext: "#88c0d0",
-    panelAccent: "#81a1c1",
-    panelAccentText: "#2e3440",
-    panelItemBg: "#2e3440",
-    progressFg: "#81a1c1",
-    progressBg: "#434c5e",
-    tocBg: "#3b4252",
-    tocBorder: "#434c5e",
-    tocActiveText: "#2e3440",
-    proseBg: "#2e3440",
-    proseText: "#eceff4",
+    name: "Nord", emoji: "❄️",
+    bg: "#2e3440", text: "#eceff4", subtext: "#88c0d0",
+    toolbarBg: "#3b4252", toolbarBorder: "#434c5e", toolbarText: "#eceff4",
+    btnBg: "#434c5e", btnText: "#d8dee9", btnBorder: "#4c566a", btnHoverBg: "#4c566a",
+    btnActiveBg: "#81a1c1", btnActiveText: "#2e3440",
+    panelBg: "#3b4252", panelBorder: "#434c5e", panelText: "#eceff4",
+    panelSubtext: "#88c0d0", panelAccent: "#81a1c1", panelAccentText: "#2e3440", panelItemBg: "#2e3440",
+    progressFg: "#81a1c1", progressBg: "#434c5e",
+    progressGrad: "linear-gradient(90deg, #88c0d0, #81a1c1, #5e81ac)",
+    tocBg: "#3b4252", tocBorder: "#434c5e", tocActiveText: "#2e3440",
+    proseBg: "#2e3440", proseText: "#eceff4",
   },
   solarized: {
-    name: "Solarized",
-    emoji: "🌅",
-    bg: "#fdf6e3",
-    text: "#657b83",
-    subtext: "#93a1a1",
-    toolbarBg: "#eee8d5",
-    toolbarBorder: "#d3c9a9",
-    toolbarText: "#586e75",
-    btnBg: "#e8e2d0",
-    btnText: "#586e75",
-    btnBorder: "#c8c1ab",
-    btnHoverBg: "#ddd7c5",
-    btnActiveBg: "#268bd2",
-    btnActiveText: "#fdf6e3",
-    panelBg: "#eee8d5",
-    panelBorder: "#d3c9a9",
-    panelText: "#657b83",
-    panelSubtext: "#93a1a1",
-    panelAccent: "#268bd2",
-    panelAccentText: "#fdf6e3",
-    panelItemBg: "#fdf6e3",
-    progressFg: "#268bd2",
-    progressBg: "#d3c9a9",
-    tocBg: "#eee8d5",
-    tocBorder: "#d3c9a9",
-    tocActiveText: "#fdf6e3",
-    proseBg: "#fdf6e3",
-    proseText: "#657b83",
+    name: "Solarized", emoji: "🌅",
+    bg: "#fdf6e3", text: "#657b83", subtext: "#93a1a1",
+    toolbarBg: "#eee8d5", toolbarBorder: "#d3c9a9", toolbarText: "#586e75",
+    btnBg: "#e8e2d0", btnText: "#586e75", btnBorder: "#c8c1ab", btnHoverBg: "#ddd7c5",
+    btnActiveBg: "#268bd2", btnActiveText: "#fdf6e3",
+    panelBg: "#eee8d5", panelBorder: "#d3c9a9", panelText: "#657b83",
+    panelSubtext: "#93a1a1", panelAccent: "#268bd2", panelAccentText: "#fdf6e3", panelItemBg: "#fdf6e3",
+    progressFg: "#268bd2", progressBg: "#d3c9a9",
+    progressGrad: "linear-gradient(90deg, #2aa198, #268bd2, #6c71c4)",
+    tocBg: "#eee8d5", tocBorder: "#d3c9a9", tocActiveText: "#fdf6e3",
+    proseBg: "#fdf6e3", proseText: "#657b83",
   },
   gruvbox: {
-    name: "Gruvbox",
-    emoji: "🍂",
-    bg: "#282828",
-    text: "#ebdbb2",
-    subtext: "#a89984",
-    toolbarBg: "#3c3836",
-    toolbarBorder: "#504945",
-    toolbarText: "#ebdbb2",
-    btnBg: "#504945",
-    btnText: "#d5c4a1",
-    btnBorder: "#665c54",
-    btnHoverBg: "#665c54",
-    btnActiveBg: "#d79921",
-    btnActiveText: "#282828",
-    panelBg: "#3c3836",
-    panelBorder: "#504945",
-    panelText: "#ebdbb2",
-    panelSubtext: "#a89984",
-    panelAccent: "#d79921",
-    panelAccentText: "#282828",
-    panelItemBg: "#282828",
-    progressFg: "#d79921",
-    progressBg: "#504945",
-    tocBg: "#3c3836",
-    tocBorder: "#504945",
-    tocActiveText: "#282828",
-    proseBg: "#282828",
-    proseText: "#ebdbb2",
+    name: "Gruvbox", emoji: "🍂",
+    bg: "#282828", text: "#ebdbb2", subtext: "#a89984",
+    toolbarBg: "#3c3836", toolbarBorder: "#504945", toolbarText: "#ebdbb2",
+    btnBg: "#504945", btnText: "#d5c4a1", btnBorder: "#665c54", btnHoverBg: "#665c54",
+    btnActiveBg: "#d79921", btnActiveText: "#282828",
+    panelBg: "#3c3836", panelBorder: "#504945", panelText: "#ebdbb2",
+    panelSubtext: "#a89984", panelAccent: "#d79921", panelAccentText: "#282828", panelItemBg: "#282828",
+    progressFg: "#d79921", progressBg: "#504945",
+    progressGrad: "linear-gradient(90deg, #fabd2f, #d79921, #b57614)",
+    tocBg: "#3c3836", tocBorder: "#504945", tocActiveText: "#282828",
+    proseBg: "#282828", proseText: "#ebdbb2",
   },
   catppuccin: {
-    name: "Catppuccin",
-    emoji: "🐱",
-    bg: "#1e1e2e",
-    text: "#cdd6f4",
-    subtext: "#a6adc8",
-    toolbarBg: "#181825",
-    toolbarBorder: "#313244",
-    toolbarText: "#cdd6f4",
-    btnBg: "#313244",
-    btnText: "#bac2de",
-    btnBorder: "#45475a",
-    btnHoverBg: "#45475a",
-    btnActiveBg: "#cba6f7",
-    btnActiveText: "#1e1e2e",
-    panelBg: "#181825",
-    panelBorder: "#313244",
-    panelText: "#cdd6f4",
-    panelSubtext: "#a6adc8",
-    panelAccent: "#cba6f7",
-    panelAccentText: "#1e1e2e",
-    panelItemBg: "#1e1e2e",
-    progressFg: "#cba6f7",
-    progressBg: "#313244",
-    tocBg: "#181825",
-    tocBorder: "#313244",
-    tocActiveText: "#1e1e2e",
-    proseBg: "#1e1e2e",
-    proseText: "#cdd6f4",
+    name: "Catppuccin", emoji: "🐱",
+    bg: "#1e1e2e", text: "#cdd6f4", subtext: "#a6adc8",
+    toolbarBg: "#181825", toolbarBorder: "#313244", toolbarText: "#cdd6f4",
+    btnBg: "#313244", btnText: "#bac2de", btnBorder: "#45475a", btnHoverBg: "#45475a",
+    btnActiveBg: "#cba6f7", btnActiveText: "#1e1e2e",
+    panelBg: "#181825", panelBorder: "#313244", panelText: "#cdd6f4",
+    panelSubtext: "#a6adc8", panelAccent: "#cba6f7", panelAccentText: "#1e1e2e", panelItemBg: "#1e1e2e",
+    progressFg: "#cba6f7", progressBg: "#313244",
+    progressGrad: "linear-gradient(90deg, #f5c2e7, #cba6f7, #89b4fa)",
+    tocBg: "#181825", tocBorder: "#313244", tocActiveText: "#1e1e2e",
+    proseBg: "#1e1e2e", proseText: "#cdd6f4",
   },
   rosepine: {
-    name: "Rosé Pine",
-    emoji: "🌸",
-    bg: "#191724",
-    text: "#e0def4",
-    subtext: "#908caa",
-    toolbarBg: "#1f1d2e",
-    toolbarBorder: "#26233a",
-    toolbarText: "#e0def4",
-    btnBg: "#26233a",
-    btnText: "#c4c0d9",
-    btnBorder: "#403d52",
-    btnHoverBg: "#403d52",
-    btnActiveBg: "#c4a7e7",
-    btnActiveText: "#191724",
-    panelBg: "#1f1d2e",
-    panelBorder: "#26233a",
-    panelText: "#e0def4",
-    panelSubtext: "#908caa",
-    panelAccent: "#c4a7e7",
-    panelAccentText: "#191724",
-    panelItemBg: "#191724",
-    progressFg: "#c4a7e7",
-    progressBg: "#26233a",
-    tocBg: "#1f1d2e",
-    tocBorder: "#26233a",
-    tocActiveText: "#191724",
-    proseBg: "#191724",
-    proseText: "#e0def4",
+    name: "Rosé Pine", emoji: "🌸",
+    bg: "#191724", text: "#e0def4", subtext: "#908caa",
+    toolbarBg: "#1f1d2e", toolbarBorder: "#26233a", toolbarText: "#e0def4",
+    btnBg: "#26233a", btnText: "#c4c0d9", btnBorder: "#403d52", btnHoverBg: "#403d52",
+    btnActiveBg: "#c4a7e7", btnActiveText: "#191724",
+    panelBg: "#1f1d2e", panelBorder: "#26233a", panelText: "#e0def4",
+    panelSubtext: "#908caa", panelAccent: "#c4a7e7", panelAccentText: "#191724", panelItemBg: "#191724",
+    progressFg: "#c4a7e7", progressBg: "#26233a",
+    progressGrad: "linear-gradient(90deg, #ebbcba, #c4a7e7, #9ccfd8)",
+    tocBg: "#1f1d2e", tocBorder: "#26233a", tocActiveText: "#191724",
+    proseBg: "#191724", proseText: "#e0def4",
   },
   dracula: {
-    name: "Dracula",
-    emoji: "🧛",
-    bg: "#282a36",
-    text: "#f8f8f2",
-    subtext: "#6272a4",
-    toolbarBg: "#21222c",
-    toolbarBorder: "#44475a",
-    toolbarText: "#f8f8f2",
-    btnBg: "#44475a",
-    btnText: "#f8f8f2",
-    btnBorder: "#6272a4",
-    btnHoverBg: "#6272a4",
-    btnActiveBg: "#ff79c6",
-    btnActiveText: "#282a36",
-    panelBg: "#21222c",
-    panelBorder: "#44475a",
-    panelText: "#f8f8f2",
-    panelSubtext: "#6272a4",
-    panelAccent: "#ff79c6",
-    panelAccentText: "#282a36",
-    panelItemBg: "#282a36",
-    progressFg: "#ff79c6",
-    progressBg: "#44475a",
-    tocBg: "#21222c",
-    tocBorder: "#44475a",
-    tocActiveText: "#282a36",
-    proseBg: "#282a36",
-    proseText: "#f8f8f2",
+    name: "Dracula", emoji: "🧛",
+    bg: "#282a36", text: "#f8f8f2", subtext: "#6272a4",
+    toolbarBg: "#21222c", toolbarBorder: "#44475a", toolbarText: "#f8f8f2",
+    btnBg: "#44475a", btnText: "#f8f8f2", btnBorder: "#6272a4", btnHoverBg: "#6272a4",
+    btnActiveBg: "#ff79c6", btnActiveText: "#282a36",
+    panelBg: "#21222c", panelBorder: "#44475a", panelText: "#f8f8f2",
+    panelSubtext: "#6272a4", panelAccent: "#ff79c6", panelAccentText: "#282a36", panelItemBg: "#282a36",
+    progressFg: "#ff79c6", progressBg: "#44475a",
+    progressGrad: "linear-gradient(90deg, #bd93f9, #ff79c6, #ffb86c)",
+    tocBg: "#21222c", tocBorder: "#44475a", tocActiveText: "#282a36",
+    proseBg: "#282a36", proseText: "#f8f8f2",
   },
   tokyonight: {
-    name: "Tokyo Night",
-    emoji: "🗼",
-    bg: "#1a1b26",
-    text: "#c0caf5",
-    subtext: "#565f89",
-    toolbarBg: "#16161e",
-    toolbarBorder: "#2f3549",
-    toolbarText: "#c0caf5",
-    btnBg: "#2f3549",
-    btnText: "#a9b1d6",
-    btnBorder: "#414868",
-    btnHoverBg: "#414868",
-    btnActiveBg: "#7aa2f7",
-    btnActiveText: "#1a1b26",
-    panelBg: "#16161e",
-    panelBorder: "#2f3549",
-    panelText: "#c0caf5",
-    panelSubtext: "#565f89",
-    panelAccent: "#7aa2f7",
-    panelAccentText: "#1a1b26",
-    panelItemBg: "#1a1b26",
-    progressFg: "#7aa2f7",
-    progressBg: "#2f3549",
-    tocBg: "#16161e",
-    tocBorder: "#2f3549",
-    tocActiveText: "#1a1b26",
-    proseBg: "#1a1b26",
-    proseText: "#c0caf5",
+    name: "Tokyo Night", emoji: "🗼",
+    bg: "#1a1b26", text: "#c0caf5", subtext: "#565f89",
+    toolbarBg: "#16161e", toolbarBorder: "#2f3549", toolbarText: "#c0caf5",
+    btnBg: "#2f3549", btnText: "#a9b1d6", btnBorder: "#414868", btnHoverBg: "#414868",
+    btnActiveBg: "#7aa2f7", btnActiveText: "#1a1b26",
+    panelBg: "#16161e", panelBorder: "#2f3549", panelText: "#c0caf5",
+    panelSubtext: "#565f89", panelAccent: "#7aa2f7", panelAccentText: "#1a1b26", panelItemBg: "#1a1b26",
+    progressFg: "#7aa2f7", progressBg: "#2f3549",
+    progressGrad: "linear-gradient(90deg, #bb9af7, #7aa2f7, #73daca)",
+    tocBg: "#16161e", tocBorder: "#2f3549", tocActiveText: "#1a1b26",
+    proseBg: "#1a1b26", proseText: "#c0caf5",
   },
   amber: {
-    name: "Warm Amber",
-    emoji: "🌻",
-    bg: "#fefce8",
-    text: "#713f12",
-    subtext: "#92400e",
-    toolbarBg: "#fef9c3",
-    toolbarBorder: "#fde68a",
-    toolbarText: "#713f12",
-    btnBg: "#fef3c7",
-    btnText: "#78350f",
-    btnBorder: "#fcd34d",
-    btnHoverBg: "#fde68a",
-    btnActiveBg: "#d97706",
-    btnActiveText: "#fffbeb",
-    panelBg: "#fef9c3",
-    panelBorder: "#fde68a",
-    panelText: "#713f12",
-    panelSubtext: "#92400e",
-    panelAccent: "#d97706",
-    panelAccentText: "#fffbeb",
-    panelItemBg: "#fefce8",
-    progressFg: "#d97706",
-    progressBg: "#fde68a",
-    tocBg: "#fef9c3",
-    tocBorder: "#fde68a",
-    tocActiveText: "#fffbeb",
-    proseBg: "#fefce8",
-    proseText: "#713f12",
+    name: "Warm Amber", emoji: "🌻",
+    bg: "#fefce8", text: "#713f12", subtext: "#92400e",
+    toolbarBg: "#fef9c3", toolbarBorder: "#fde68a", toolbarText: "#713f12",
+    btnBg: "#fef3c7", btnText: "#78350f", btnBorder: "#fcd34d", btnHoverBg: "#fde68a",
+    btnActiveBg: "#d97706", btnActiveText: "#fffbeb",
+    panelBg: "#fef9c3", panelBorder: "#fde68a", panelText: "#713f12",
+    panelSubtext: "#92400e", panelAccent: "#d97706", panelAccentText: "#fffbeb", panelItemBg: "#fefce8",
+    progressFg: "#d97706", progressBg: "#fde68a",
+    progressGrad: "linear-gradient(90deg, #fbbf24, #f59e0b, #d97706)",
+    tocBg: "#fef9c3", tocBorder: "#fde68a", tocActiveText: "#fffbeb",
+    proseBg: "#fefce8", proseText: "#713f12",
   },
   midnight: {
-    name: "Midnight Blue",
-    emoji: "🌌",
-    bg: "#0a0e27",
-    text: "#c7d2fe",
-    subtext: "#818cf8",
-    toolbarBg: "#0e1438",
-    toolbarBorder: "#1e254a",
-    toolbarText: "#c7d2fe",
-    btnBg: "#1e254a",
-    btnText: "#a5b4fc",
-    btnBorder: "#312e81",
-    btnHoverBg: "#2d3561",
-    btnActiveBg: "#6366f1",
-    btnActiveText: "#ffffff",
-    panelBg: "#0e1438",
-    panelBorder: "#1e254a",
-    panelText: "#c7d2fe",
-    panelSubtext: "#818cf8",
-    panelAccent: "#6366f1",
-    panelAccentText: "#ffffff",
-    panelItemBg: "#0a0e27",
-    progressFg: "#6366f1",
-    progressBg: "#1e254a",
-    tocBg: "#0e1438",
-    tocBorder: "#1e254a",
-    tocActiveText: "#ffffff",
-    proseBg: "#0a0e27",
-    proseText: "#c7d2fe",
+    name: "Midnight Blue", emoji: "🌌",
+    bg: "#0a0e27", text: "#c7d2fe", subtext: "#818cf8",
+    toolbarBg: "#0e1438", toolbarBorder: "#1e254a", toolbarText: "#c7d2fe",
+    btnBg: "#1e254a", btnText: "#a5b4fc", btnBorder: "#312e81", btnHoverBg: "#2d3561",
+    btnActiveBg: "#6366f1", btnActiveText: "#ffffff",
+    panelBg: "#0e1438", panelBorder: "#1e254a", panelText: "#c7d2fe",
+    panelSubtext: "#818cf8", panelAccent: "#6366f1", panelAccentText: "#ffffff", panelItemBg: "#0a0e27",
+    progressFg: "#6366f1", progressBg: "#1e254a",
+    progressGrad: "linear-gradient(90deg, #818cf8, #6366f1, #4338ca)",
+    tocBg: "#0e1438", tocBorder: "#1e254a", tocActiveText: "#ffffff",
+    proseBg: "#0a0e27", proseText: "#c7d2fe",
   },
   highcontrast: {
-    name: "High Contrast",
-    emoji: "♟️",
-    bg: "#000000",
-    text: "#ffff00",
-    subtext: "#00ff00",
-    toolbarBg: "#111111",
-    toolbarBorder: "#ffff00",
-    toolbarText: "#ffff00",
-    btnBg: "#222222",
-    btnText: "#ffff00",
-    btnBorder: "#ffff00",
-    btnHoverBg: "#333333",
-    btnActiveBg: "#ffff00",
-    btnActiveText: "#000000",
-    panelBg: "#111111",
-    panelBorder: "#ffff00",
-    panelText: "#ffff00",
-    panelSubtext: "#00ff00",
-    panelAccent: "#ffff00",
-    panelAccentText: "#000000",
-    panelItemBg: "#000000",
-    progressFg: "#ffff00",
-    progressBg: "#333333",
-    tocBg: "#111111",
-    tocBorder: "#ffff00",
-    tocActiveText: "#000000",
-    proseBg: "#000000",
-    proseText: "#ffff00",
+    name: "High Contrast", emoji: "♟️",
+    bg: "#000000", text: "#ffff00", subtext: "#00ff00",
+    toolbarBg: "#111111", toolbarBorder: "#ffff00", toolbarText: "#ffff00",
+    btnBg: "#222222", btnText: "#ffff00", btnBorder: "#ffff00", btnHoverBg: "#333333",
+    btnActiveBg: "#ffff00", btnActiveText: "#000000",
+    panelBg: "#111111", panelBorder: "#ffff00", panelText: "#ffff00",
+    panelSubtext: "#00ff00", panelAccent: "#ffff00", panelAccentText: "#000000", panelItemBg: "#000000",
+    progressFg: "#ffff00", progressBg: "#333333",
+    progressGrad: "linear-gradient(90deg, #00ff00, #ffff00, #ff0000)",
+    tocBg: "#111111", tocBorder: "#ffff00", tocActiveText: "#000000",
+    proseBg: "#000000", proseText: "#ffff00",
   },
   paper: {
-    name: "Paper White",
-    emoji: "📄",
-    bg: "#f5f5f0",
-    text: "#1a1a1a",
-    subtext: "#555555",
-    toolbarBg: "#ededea",
-    toolbarBorder: "#d1d1cc",
-    toolbarText: "#1a1a1a",
-    btnBg: "#e8e8e4",
-    btnText: "#333333",
-    btnBorder: "#c8c8c4",
-    btnHoverBg: "#ddddd9",
-    btnActiveBg: "#222222",
-    btnActiveText: "#f5f5f0",
-    panelBg: "#ededea",
-    panelBorder: "#d1d1cc",
-    panelText: "#1a1a1a",
-    panelSubtext: "#555555",
-    panelAccent: "#222222",
-    panelAccentText: "#f5f5f0",
-    panelItemBg: "#f5f5f0",
-    progressFg: "#222222",
-    progressBg: "#d1d1cc",
-    tocBg: "#ededea",
-    tocBorder: "#d1d1cc",
-    tocActiveText: "#f5f5f0",
-    proseBg: "#f5f5f0",
-    proseText: "#1a1a1a",
+    name: "Paper White", emoji: "📄",
+    bg: "#f5f5f0", text: "#1a1a1a", subtext: "#555555",
+    toolbarBg: "#ededea", toolbarBorder: "#d1d1cc", toolbarText: "#1a1a1a",
+    btnBg: "#e8e8e4", btnText: "#333333", btnBorder: "#c8c8c4", btnHoverBg: "#ddddd9",
+    btnActiveBg: "#222222", btnActiveText: "#f5f5f0",
+    panelBg: "#ededea", panelBorder: "#d1d1cc", panelText: "#1a1a1a",
+    panelSubtext: "#555555", panelAccent: "#222222", panelAccentText: "#f5f5f0", panelItemBg: "#f5f5f0",
+    progressFg: "#222222", progressBg: "#d1d1cc",
+    progressGrad: "linear-gradient(90deg, #555555, #222222, #000000)",
+    tocBg: "#ededea", tocBorder: "#d1d1cc", tocActiveText: "#f5f5f0",
+    proseBg: "#f5f5f0", proseText: "#1a1a1a",
   },
 };
 
@@ -557,6 +248,17 @@ const THEME_ORDER: ThemeName[] = [
   "light","sepia","dark","oled","forest","nord","solarized","gruvbox",
   "catppuccin","rosepine","dracula","tokyonight","amber","midnight","highcontrast","paper"
 ];
+
+// ─── BOOKMARK TYPE ─────────────────────────────────────────────────────────────
+
+interface Bookmark {
+  id: string;
+  chapterIndex: number;
+  chapterTitle: string;
+  scrollTop: number;
+  label: string;
+  createdAt: number;
+}
 
 // ─── MAIN COMPONENT ────────────────────────────────────────────────────────────
 
@@ -595,14 +297,23 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   const [pageFlipAnim, setPageFlipAnim] = useState<"next" | "prev" | null>(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
-  // Dictionary State
+  // Bookmarks
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [showBookmarks, setShowBookmarks] = useState(false);
+
+  // Dictionary State — word selection only creates bubble, manual input is separate
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [dictionaryData, setDictionaryData] = useState<DictionaryResult | null>(null);
   const [dictionaryLoading, setDictionaryLoading] = useState(false);
   const [showDictionaryDrawer, setShowDictionaryDrawer] = useState(false);
   const [manualWordInput, setManualWordInput] = useState("");
+  const [sidebarDictData, setSidebarDictData] = useState<DictionaryResult | null>(null);
+  const [sidebarDictLoading, setSidebarDictLoading] = useState(false);
   // Bubble position: track click Y to show above/below
-  const [bubblePos, setBubblePos] = useState<{ x: number; y: number; above: boolean }>({ x: 0, y: 0, above: false });
+  const [bubblePos, setBubblePos] = useState<{ above: boolean }>({ above: false });
+
+  // Progress for vertical scroll (0–100)
+  const [verticalProgress, setVerticalProgress] = useState(0);
 
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -625,30 +336,86 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     }
   }, [selectedFont]);
 
-  // ─── DICTIONARY ────────────────────────────────────────────────────────────
+  // ─── VERTICAL SCROLL PROGRESS TRACKER ──────────────────────────────────────
 
-  const executeDictionaryLookup = useCallback(async (word: string, clickEvent?: MouseEvent | React.MouseEvent) => {
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || scrollMode !== "vertical") return;
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const max = scrollHeight - clientHeight;
+      if (max <= 0) { setVerticalProgress(100); return; }
+      const pct = Math.min(100, Math.round((scrollTop / max) * 100));
+      setVerticalProgress(pct);
+    };
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll(); // init
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [scrollMode, isReading, chapters]);
+
+  // Reset vertical progress when switching modes
+  useEffect(() => {
+    if (scrollMode === "horizontal") setVerticalProgress(0);
+  }, [scrollMode]);
+
+  // ─── DICTIONARY — BUBBLE (selection-triggered) ─────────────────────────────
+
+  const executeBubbleLookup = useCallback(async (word: string, above: boolean) => {
     const clean = word.toLowerCase().replace(/[^a-z]/g, "").trim();
     if (!clean || clean.length < 2) return;
-
-    // Smart bubble positioning
-    if (clickEvent) {
-      const winH = window.innerHeight;
-      const x = (clickEvent as any).clientX || window.innerWidth / 2;
-      const y = (clickEvent as any).clientY || winH / 2;
-      setBubblePos({ x, y, above: y > winH * 0.55 });
-    }
-
+    setBubblePos({ above });
     setSelectedWord(clean);
+    setDictionaryData(null);
     setDictionaryLoading(true);
     try {
+      // Only fetch definition, NOT Hindi — user must click button for that
       const result = await lookupWordComprehensive(clean);
+      // Strip hindiTranslation so it's not shown automatically
+      result.hindiTranslation = undefined;
       setDictionaryData(result);
     } catch (e) {
       console.error("Dictionary lookup error:", e);
     } finally {
       setDictionaryLoading(false);
     }
+  }, []);
+
+  // ─── DICTIONARY — SIDEBAR (manual input) ──────────────────────────────────
+
+  const executeSidebarLookup = useCallback(async (word: string) => {
+    const clean = word.toLowerCase().replace(/[^a-z]/g, "").trim();
+    if (!clean || clean.length < 2) return;
+    setSidebarDictLoading(true);
+    setSidebarDictData(null);
+    try {
+      const result = await lookupWordComprehensive(clean);
+      result.hindiTranslation = undefined; // user must click Translate button
+      setSidebarDictData(result);
+    } catch (e) {
+      console.error("Sidebar lookup error:", e);
+    } finally {
+      setSidebarDictLoading(false);
+    }
+  }, []);
+
+  // ─── HINDI TRANSLATION (on-demand, button-triggered) ──────────────────────
+
+  const fetchHindi = useCallback(async (word: string, forSidebar: boolean) => {
+    try {
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|hi`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        const translated: string = data?.responseData?.translatedText || "";
+        if (translated && translated.toLowerCase() !== word.toLowerCase()) {
+          if (forSidebar) {
+            setSidebarDictData(prev => prev ? { ...prev, hindiTranslation: translated } : prev);
+          } else {
+            setDictionaryData(prev => prev ? { ...prev, hindiTranslation: translated } : prev);
+          }
+        }
+      }
+    } catch { /* silent */ }
   }, []);
 
   // ─── SPEECH ────────────────────────────────────────────────────────────────
@@ -671,16 +438,12 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     (direction: "next" | "prev") => {
       setPageFlipAnim(direction);
       setTimeout(() => setPageFlipAnim(null), 300);
-
       if (direction === "next") {
         setCurrentChapterIndex((prev) => Math.min(chapters.length - 1, prev + 1));
       } else {
         setCurrentChapterIndex((prev) => Math.max(0, prev - 1));
       }
-
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop = 0;
-      }
+      if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
     },
     [chapters.length]
   );
@@ -691,13 +454,10 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isReading) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-
       if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
-        e.preventDefault();
-        triggerPageTurn("next");
+        e.preventDefault(); triggerPageTurn("next");
       } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
-        e.preventDefault();
-        triggerPageTurn("prev");
+        e.preventDefault(); triggerPageTurn("prev");
       } else if (e.key === "Escape") {
         if (selectedWord) { setSelectedWord(null); return; }
         if (showThemePicker) { setShowThemePicker(false); return; }
@@ -705,10 +465,22 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         setIsReading(false);
       }
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isReading, triggerPageTurn, selectedWord, showThemePicker, showFontMenu]);
+
+  // Close bubble on outside click
+  useEffect(() => {
+    if (!selectedWord) return;
+    const handler = (e: MouseEvent) => {
+      const bubble = document.getElementById("dict-bubble");
+      if (bubble && !bubble.contains(e.target as Node)) {
+        setSelectedWord(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [selectedWord]);
 
   // ─── FILE PROCESSING ───────────────────────────────────────────────────────
 
@@ -717,7 +489,6 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     setFileName(f.name);
     const ext = f.name.split(".").pop()?.toLowerCase() || "";
     setFileType(ext);
-
     try {
       if (ext === "epub") {
         const buffer = await f.arrayBuffer();
@@ -737,32 +508,19 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         const tempToc: TocItem[] = [];
         const tempPathMap: Record<string, number> = {};
         let currentChunk = "";
-
         for (let i = 0; i < paragraphs.length; i++) {
           currentChunk += paragraphs[i] + "\n\n";
           if (currentChunk.length > 3500 || i === paragraphs.length - 1) {
             const chTitle = `Section ${tempChapters.length + 1}`;
-            tempChapters.push({
-              id: `section-${tempChapters.length + 1}`,
-              fullPath: `section-${tempChapters.length + 1}`,
-              fileName: `section-${tempChapters.length + 1}`,
-              title: chTitle,
-              html: currentChunk.replace(/\n/g, "<br/>"),
-              textLength: currentChunk.length,
-            });
+            tempChapters.push({ id: `section-${tempChapters.length + 1}`, fullPath: `section-${tempChapters.length + 1}`, fileName: `section-${tempChapters.length + 1}`, title: chTitle, html: currentChunk.replace(/\n/g, "<br/>"), textLength: currentChunk.length });
             tempToc.push({ label: chTitle, chapterIndex: tempChapters.length - 1 });
             tempPathMap[`section-${tempChapters.length}`] = tempChapters.length - 1;
             currentChunk = "";
           }
         }
-
         setBookTitle(f.name.replace(/\.[^/.]+$/, ""));
         setBookAuthor("Document");
-        setChapters(
-          tempChapters.length > 0
-            ? tempChapters
-            : [{ id: "c1", fullPath: "c1", fileName: "c1", title: f.name, html: text.replace(/\n/g, "<br/>"), textLength: text.length }]
-        );
+        setChapters(tempChapters.length > 0 ? tempChapters : [{ id: "c1", fullPath: "c1", fileName: "c1", title: f.name, html: text.replace(/\n/g, "<br/>"), textLength: text.length }]);
         setToc(tempToc);
         setPathMap(tempPathMap);
         setCurrentChapterIndex(0);
@@ -774,9 +532,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
       try {
         const text = await f.text();
         setBookTitle(f.name);
-        setChapters([
-          { id: "fallback", fullPath: "fallback", fileName: "fallback", title: f.name, html: text.replace(/\n/g, "<br/>").slice(0, 60000), textLength: text.length },
-        ]);
+        setChapters([{ id: "fallback", fullPath: "fallback", fileName: "fallback", title: f.name, html: text.replace(/\n/g, "<br/>").slice(0, 60000), textLength: text.length }]);
         setToc([{ label: "Start", chapterIndex: 0 }]);
         setCurrentChapterIndex(0);
         setIsReading(true);
@@ -793,22 +549,13 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
       const targetFile = anchorEl.getAttribute("data-chapter-target");
       const anchor = anchorEl.getAttribute("data-anchor-target");
       const href = anchorEl.getAttribute("href");
-
       if (targetFile || (href && !href.startsWith("http") && !href.startsWith("mailto"))) {
-        e.preventDefault();
-        e.stopPropagation();
-
+        e.preventDefault(); e.stopPropagation();
         const fileToFind = (targetFile || href || "").split("#")[0].split("/").pop() || "";
         const targetIdx = pathMap[fileToFind] ?? (targetFile ? pathMap[targetFile] : undefined);
-
         if (typeof targetIdx === "number" && targetIdx >= 0 && targetIdx < chapters.length) {
           setCurrentChapterIndex(targetIdx);
-          if (anchor) {
-            setTimeout(() => {
-              const el = document.getElementById(anchor) || document.querySelector(`[name="${anchor}"]`);
-              el?.scrollIntoView({ behavior: "smooth" });
-            }, 100);
-          }
+          if (anchor) setTimeout(() => { const el = document.getElementById(anchor) || document.querySelector(`[name="${anchor}"]`); el?.scrollIntoView({ behavior: "smooth" }); }, 100);
           if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
           return;
         }
@@ -816,27 +563,43 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const uploadedFile = e.target.files?.[0];
-    if (uploadedFile) processFile(uploadedFile);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const droppedFile = e.dataTransfer.files?.[0];
-    if (droppedFile) processFile(droppedFile);
-  };
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) processFile(f); };
+  const handleDrop = (e: React.DragEvent) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) processFile(f); };
 
   // ─── FULLSCREEN ────────────────────────────────────────────────────────────
 
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      readerContainerRef.current?.requestFullscreen?.();
-      setIsFullscreen(true);
+    if (!document.fullscreenElement) { readerContainerRef.current?.requestFullscreen?.(); setIsFullscreen(true); }
+    else { document.exitFullscreen?.(); setIsFullscreen(false); }
+  };
+
+  // ─── BOOKMARKS ─────────────────────────────────────────────────────────────
+
+  const isCurrentPageBookmarked = bookmarks.some(b => b.chapterIndex === currentChapterIndex);
+
+  const toggleBookmark = () => {
+    if (isCurrentPageBookmarked) {
+      setBookmarks(prev => prev.filter(b => b.chapterIndex !== currentChapterIndex));
     } else {
-      document.exitFullscreen?.();
-      setIsFullscreen(false);
+      const scrollTop = scrollContainerRef.current?.scrollTop || 0;
+      const ch = chapters[currentChapterIndex];
+      setBookmarks(prev => [...prev, {
+        id: `bm-${Date.now()}`,
+        chapterIndex: currentChapterIndex,
+        chapterTitle: ch?.title || `Chapter ${currentChapterIndex + 1}`,
+        scrollTop,
+        label: `${ch?.title || `Chapter ${currentChapterIndex + 1}`}`,
+        createdAt: Date.now(),
+      }]);
     }
+  };
+
+  const jumpToBookmark = (bm: Bookmark) => {
+    setCurrentChapterIndex(bm.chapterIndex);
+    setShowBookmarks(false);
+    setTimeout(() => {
+      if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = bm.scrollTop;
+    }, 80);
   };
 
   // ─── DEMO BOOK ─────────────────────────────────────────────────────────────
@@ -847,21 +610,8 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     setFileType("epub");
     setBookTitle("The Adventures of Sherlock Holmes");
     setBookAuthor("Sir Arthur Conan Doyle");
-
-    const demoChapter1 = `<h1>Chapter 1: A Scandal in Bohemia</h1>
-<p>To Sherlock Holmes she is always <strong>THE</strong> woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex. It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind.</p>
-<p>He was, I take it, the most perfect reasoning and observing machine that the world has seen, but as a lover he would have placed himself in a false position. He never spoke of the softer passions, save with a gibe and a sneer. They were admirable things for the observer—excellent for drawing the veil from men's motives and actions.</p>
-<p>And yet there was but one woman to him, and that woman was the late Irene Adler, of dubious and questionable memory.</p>`;
-
-    const demoChapter2 = `<h1>Chapter 2: The Red-Headed League</h1>
-<p>I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last year and found him in deep conversation with a very stout, florid-faced, elderly gentleman with fiery red hair.</p>
-<p>With an apology for my intrusion, I was about to withdraw when Holmes pulled me abruptly into the room and closed the door behind me.</p>
-<p>"You could not have come at a better time, my dear Watson," he said cordially.</p>
-<p>"I was afraid that you were engaged."</p>
-<p>"So I am. Very much so."</p>
-<p>"Then I can wait in the next room."</p>
-<p>"Not at all. This gentleman, Mr. Wilson, has been my partner and helper in many of my most interesting cases, and I have no doubt that he will be of the utmost use to me in yours also."</p>`;
-
+    const demoChapter1 = `<h1>Chapter 1: A Scandal in Bohemia</h1><p>To Sherlock Holmes she is always <strong>THE</strong> woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex. It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind.</p><p>He was, I take it, the most perfect reasoning and observing machine that the world has seen, but as a lover he would have placed himself in a false position. He never spoke of the softer passions, save with a gibe and a sneer. They were admirable things for the observer—excellent for drawing the veil from men's motives and actions.</p><p>And yet there was but one woman to him, and that woman was the late Irene Adler, of dubious and questionable memory.</p>`;
+    const demoChapter2 = `<h1>Chapter 2: The Red-Headed League</h1><p>I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last year and found him in deep conversation with a very stout, florid-faced, elderly gentleman with fiery red hair.</p><p>With an apology for my intrusion, I was about to withdraw when Holmes pulled me abruptly into the room and closed the door behind me.</p><p>"You could not have come at a better time, my dear Watson," he said cordially.</p>`;
     setChapters([
       { id: "ch1", fullPath: "ch1.html", fileName: "ch1.html", title: "Chapter 1: A Scandal in Bohemia", html: demoChapter1, textLength: demoChapter1.length },
       { id: "ch2", fullPath: "ch2.html", fileName: "ch2.html", title: "Chapter 2: The Red-Headed League", html: demoChapter2, textLength: demoChapter2.length },
@@ -884,55 +634,43 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   });
 
   const currentChapter = chapters[currentChapterIndex];
-  const progressPercent = chapters.length > 0 ? Math.round(((currentChapterIndex + 1) / chapters.length) * 100) : 0;
+  // For horizontal mode — chapter-based progress
+  const horizontalProgress = chapters.length > 0 ? Math.round(((currentChapterIndex + 1) / chapters.length) * 100) : 0;
+  // Progress to show in bottom bar
+  const displayProgress = scrollMode === "vertical" ? verticalProgress : horizontalProgress;
 
   // ─── MOUSE SELECTION HANDLER ───────────────────────────────────────────────
 
   const handleTextMouseUp = (e: React.MouseEvent) => {
     const sel = window.getSelection()?.toString() || "";
-    const clean = sel.replace(/[^a-zA-Z]/g, "").trim();
+    const word = sel.trim().split(/\s+/)[0]; // Only take FIRST word of selection
+    const clean = word.replace(/[^a-zA-Z]/g, "").trim();
     if (clean && clean.length >= 2) {
-      executeDictionaryLookup(clean, e);
+      const winH = window.innerHeight;
+      const y = e.clientY;
+      executeBubbleLookup(clean, y > winH * 0.55);
     }
   };
 
-  // ─── BUBBLE STYLE ─────────────────────────────────────────────────────────
+  // ─── STYLE HELPERS ─────────────────────────────────────────────────────────
 
-  const getBubbleStyle = (): React.CSSProperties => {
-    const base: React.CSSProperties = {
-      position: "absolute",
-      zIndex: 50,
-      width: "22rem",
-      maxWidth: "calc(100vw - 2rem)",
-      right: "1.5rem",
-      background: T.panelBg,
-      border: `1.5px solid ${T.panelBorder}`,
-      color: T.panelText,
-      borderRadius: "1rem",
-      boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-      padding: "1rem",
-    };
-    if (bubblePos.above) {
-      base.bottom = "4.5rem";
-    } else {
-      base.top = "1rem";
-    }
-    return base;
-  };
+  const getBubbleStyle = (): React.CSSProperties => ({
+    position: "absolute",
+    zIndex: 50,
+    width: "22rem",
+    maxWidth: "calc(100vw - 2rem)",
+    right: "1.5rem",
+    background: T.panelBg,
+    border: `1.5px solid ${T.panelBorder}`,
+    color: T.panelText,
+    borderRadius: "1rem",
+    boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+    padding: "1rem",
+    ...(bubblePos.above ? { bottom: "4.5rem" } : { top: "1rem" }),
+  });
 
-  // ─── TOOLBAR BUTTON STYLE HELPERS ─────────────────────────────────────────
-
-  const btnStyle: React.CSSProperties = {
-    background: T.btnBg,
-    color: T.btnText,
-    border: `1px solid ${T.btnBorder}`,
-  };
-
-  const btnActiveStyle: React.CSSProperties = {
-    background: T.btnActiveBg,
-    color: T.btnActiveText,
-    border: `1px solid ${T.btnActiveBg}`,
-  };
+  const btnStyle: React.CSSProperties = { background: T.btnBg, color: T.btnText, border: `1px solid ${T.btnBorder}` };
+  const btnActiveStyle: React.CSSProperties = { background: T.btnActiveBg, color: T.btnActiveText, border: `1px solid ${T.btnActiveBg}` };
 
   // ─── RENDER ────────────────────────────────────────────────────────────────
 
@@ -950,79 +688,43 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         </div>
       )}
 
-      {/* ── UPLOAD DROPZONE ─────────────────────────────────────────── */}
+      {/* ── UPLOAD DROPZONE ─────────────────────────────────────────────────── */}
       {!isReading && !loading ? (
-        <div
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleDrop}
-          className="relative rounded-3xl border-2 border-dashed border-indigo-300 dark:border-indigo-800 bg-gradient-to-b from-indigo-50/50 via-white to-slate-50 dark:from-indigo-950/20 dark:via-slate-900 dark:to-slate-950 p-8 sm:p-16 text-center transition-all hover:border-indigo-500 shadow-xl"
-        >
+        <div onDragOver={(e) => e.preventDefault()} onDrop={handleDrop} className="relative rounded-3xl border-2 border-dashed border-indigo-300 dark:border-indigo-800 bg-gradient-to-b from-indigo-50/50 via-white to-slate-50 dark:from-indigo-950/20 dark:via-slate-900 dark:to-slate-950 p-8 sm:p-16 text-center transition-all hover:border-indigo-500 shadow-xl">
           <div className="max-w-2xl mx-auto space-y-6">
-            <div className="w-20 h-20 mx-auto rounded-3xl bg-indigo-600 text-white flex items-center justify-center shadow-xl shadow-indigo-500/20">
-              <Upload className="w-10 h-10" />
-            </div>
-
+            <div className="w-20 h-20 mx-auto rounded-3xl bg-indigo-600 text-white flex items-center justify-center shadow-xl shadow-indigo-500/20"><Upload className="w-10 h-10" /></div>
             <div className="space-y-2">
               <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">Drop your E-Book or Document here</h2>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Supports <span className="font-semibold text-indigo-600 dark:text-indigo-400">.EPUB, .PDF, .MOBI, .AZW3, .FB2, .CBZ, .TXT</span> files
-              </p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Supports <span className="font-semibold text-indigo-600 dark:text-indigo-400">.EPUB, .PDF, .MOBI, .AZW3, .FB2, .CBZ, .TXT</span> files</p>
             </div>
-
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
               <label className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold text-sm shadow-lg shadow-indigo-500/25 cursor-pointer transition-all flex items-center justify-center gap-2">
-                <BookOpen className="w-4 h-4" />
-                <span>Select File from Device</span>
+                <BookOpen className="w-4 h-4" /><span>Select File from Device</span>
                 <input type="file" accept=".epub,.pdf,.mobi,.azw3,.fb2,.cbz,.txt" onChange={handleFileUpload} className="hidden" />
               </label>
-
-              <button
-                onClick={loadDemoBook}
-                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-sm transition-all flex items-center justify-center gap-2"
-              >
-                <Sparkles className="w-4 h-4 text-amber-500" />
-                <span>Try Demo Classic Book</span>
+              <button onClick={loadDemoBook} className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-sm transition-all flex items-center justify-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500" /><span>Try Demo Classic Book</span>
               </button>
             </div>
-
             <div className="pt-6 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-4 text-left text-xs text-slate-500 dark:text-slate-400">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>100% Private Local Browser Reading</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-indigo-500 shrink-0" />
-                <span>Working Offline & Online Dictionary</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-amber-500 shrink-0" />
-                <span>Kindle Flip, Vertical Scroll & 116 Fonts</span>
-              </div>
+              <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" /><span>100% Private Local Browser Reading</span></div>
+              <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-indigo-500 shrink-0" /><span>Working Offline & Online Dictionary</span></div>
+              <div className="flex items-center gap-2"><FileText className="w-4 h-4 text-amber-500 shrink-0" /><span>Kindle Flip, Vertical Scroll & 116 Fonts</span></div>
             </div>
           </div>
         </div>
       ) : isReading ? (
-        /* ── READING MODE ────────────────────────────────────────────── */
+        /* ── READING MODE ─────────────────────────────────────────────────── */
         <div className="flex flex-col h-screen w-screen" style={{ background: T.bg, color: T.text }}>
 
-          {/* ── TOP TOOLBAR ──────────────────────────────────────────── */}
-          <div
-            className="h-14 px-3 sm:px-5 flex items-center justify-between gap-2 text-xs shrink-0 z-30"
-            style={{ background: T.toolbarBg, borderBottom: `1px solid ${T.toolbarBorder}`, color: T.toolbarText }}
-          >
+          {/* ── TOP TOOLBAR ─────────────────────────────────────────────── */}
+          <div className="h-14 px-3 sm:px-5 flex items-center justify-between gap-2 text-xs shrink-0 z-30" style={{ background: T.toolbarBg, borderBottom: `1px solid ${T.toolbarBorder}`, color: T.toolbarText }}>
             {/* Left: Close + Title */}
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsReading(false)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-colors"
-                style={btnStyle}
-                title="Exit Reader"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Close</span>
+              <button onClick={() => setIsReading(false)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-colors" style={btnStyle} title="Exit Reader">
+                <ArrowLeft className="w-4 h-4" /><span className="hidden sm:inline">Close</span>
               </button>
-
-              <div className="flex items-center gap-1.5 max-w-[140px] sm:max-w-xs font-semibold text-xs sm:text-sm truncate">
+              <div className="flex items-center gap-1.5 max-w-[130px] sm:max-w-xs font-semibold text-xs sm:text-sm truncate">
                 <Book className="w-4 h-4 shrink-0" style={{ color: T.panelAccent }} />
                 <span className="truncate">{bookTitle || fileName}</span>
               </div>
@@ -1031,125 +733,77 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             {/* Right: Controls */}
             <div className="flex items-center gap-1.5 sm:gap-2">
               {/* Scroll Mode Toggle */}
-              <button
-                onClick={() => setScrollMode(scrollMode === "horizontal" ? "vertical" : "horizontal")}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
-                style={scrollMode === "vertical" ? btnActiveStyle : btnStyle}
-                title="Switch between Page Flip and Vertical Continuous Scroll"
-              >
-                {scrollMode === "horizontal" ? (
-                  <>
-                    <MoveHorizontal className="w-3.5 h-3.5" />
-                    <span className="hidden md:inline">Flip Pages</span>
-                  </>
-                ) : (
-                  <>
-                    <MoveVertical className="w-3.5 h-3.5" />
-                    <span className="hidden md:inline">Vertical Scroll</span>
-                  </>
-                )}
+              <button onClick={() => setScrollMode(scrollMode === "horizontal" ? "vertical" : "horizontal")} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5" style={scrollMode === "vertical" ? btnActiveStyle : btnStyle} title="Switch between Page Flip and Vertical Scroll">
+                {scrollMode === "horizontal" ? <><MoveHorizontal className="w-3.5 h-3.5" /><span className="hidden md:inline">Flip Pages</span></> : <><MoveVertical className="w-3.5 h-3.5" /><span className="hidden md:inline">Vertical Scroll</span></>}
               </button>
 
               {/* Dictionary Launcher */}
-              <button
-                onClick={() => setShowDictionaryDrawer(!showDictionaryDrawer)}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
-                style={showDictionaryDrawer ? btnActiveStyle : btnStyle}
-                title="Open Dictionary Lookup"
-              >
-                <Search className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Dictionary</span>
+              <button onClick={() => setShowDictionaryDrawer(!showDictionaryDrawer)} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5" style={showDictionaryDrawer ? btnActiveStyle : btnStyle} title="Open Dictionary">
+                <Search className="w-3.5 h-3.5" /><span className="hidden sm:inline">Dictionary</span>
               </button>
+
+              {/* Bookmark */}
+              <button onClick={toggleBookmark} className="px-2 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1" style={isCurrentPageBookmarked ? btnActiveStyle : btnStyle} title={isCurrentPageBookmarked ? "Remove Bookmark" : "Bookmark This Page"}>
+                {isCurrentPageBookmarked ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+              </button>
+
+              {/* Bookmarks List */}
+              <div className="relative">
+                <button onClick={() => setShowBookmarks(!showBookmarks)} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1" style={showBookmarks ? btnActiveStyle : btnStyle} title="View Bookmarks">
+                  <List className="w-3.5 h-3.5" /><span className="hidden md:inline">Bookmarks {bookmarks.length > 0 && `(${bookmarks.length})`}</span>
+                </button>
+                {showBookmarks && (
+                  <div className="absolute right-0 top-11 z-50 w-72 p-3 rounded-2xl shadow-2xl space-y-2" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
+                    <div className="flex items-center justify-between pb-2" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
+                      <span className="font-bold text-xs">📌 Bookmarks</span>
+                      <button onClick={() => setShowBookmarks(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
+                    </div>
+                    {bookmarks.length === 0 ? (
+                      <p className="text-xs py-3 text-center" style={{ color: T.panelSubtext }}>No bookmarks yet. Click the 🔖 icon to save a page.</p>
+                    ) : (
+                      <div className="space-y-1.5 max-h-60 overflow-y-auto no-scrollbar">
+                        {bookmarks.map(bm => (
+                          <div key={bm.id} className="flex items-center gap-2 rounded-xl px-2.5 py-2" style={{ background: T.panelItemBg, border: `1px solid ${T.panelBorder}` }}>
+                            <button onClick={() => jumpToBookmark(bm)} className="flex-1 text-left text-xs font-medium truncate" style={{ color: T.panelText }}>{bm.label}</button>
+                            <button onClick={() => setBookmarks(prev => prev.filter(b => b.id !== bm.id))} className="shrink-0" style={{ color: T.panelSubtext }} title="Remove"><X className="w-3.5 h-3.5" /></button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Font Selector */}
               <div className="relative">
-                <button
-                  onClick={() => setShowFontMenu(!showFontMenu)}
-                  className="px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5"
-                  style={showFontMenu ? btnActiveStyle : btnStyle}
-                  title="Choose from 116 Google Fonts"
-                >
+                <button onClick={() => setShowFontMenu(!showFontMenu)} className="px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5" style={showFontMenu ? btnActiveStyle : btnStyle} title="Choose from 116 Google Fonts">
                   <Type className="w-3.5 h-3.5" />
                   <span className="truncate max-w-[70px] sm:max-w-[100px]">{selectedFont.name}</span>
                   <ChevronDown className="w-3 h-3 opacity-60" />
                 </button>
-
                 {showFontMenu && (
-                  <div
-                    className="absolute right-0 top-11 z-50 w-80 p-3 rounded-2xl shadow-2xl space-y-2.5"
-                    style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}
-                  >
+                  <div className="absolute right-0 top-11 z-50 w-80 p-3 rounded-2xl shadow-2xl space-y-2.5" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
                     <div className="flex items-center justify-between pb-2" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
-                      <div>
-                        <span className="font-bold text-xs">116 Google Fonts</span>
-                        <span className="text-[10px] block" style={{ color: T.panelSubtext }}>Select font to apply live</span>
-                      </div>
-                      <button onClick={() => setShowFontMenu(false)} style={{ color: T.panelSubtext }}>
-                        <X className="w-4 h-4" />
-                      </button>
+                      <div><span className="font-bold text-xs">116 Google Fonts</span><span className="text-[10px] block" style={{ color: T.panelSubtext }}>Select font to apply live</span></div>
+                      <button onClick={() => setShowFontMenu(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
                     </div>
-
-                    {/* Font Category Filter Tabs */}
                     <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[10px] font-medium no-scrollbar">
-                      {["all", "serif", "sans-serif", "dyslexic", "monospace", "script", "display"].map((cat) => (
-                        <button
-                          key={cat}
-                          onClick={() => setFontCategoryFilter(cat)}
-                          className="px-2 py-1 rounded-md capitalize shrink-0 transition-colors"
-                          style={
-                            fontCategoryFilter === cat
-                              ? { background: T.panelAccent, color: T.panelAccentText, fontWeight: 700 }
-                              : { background: T.panelItemBg, color: T.panelSubtext }
-                          }
-                        >
-                          {cat}
-                        </button>
+                      {["all","serif","sans-serif","dyslexic","monospace","script","display"].map((cat) => (
+                        <button key={cat} onClick={() => setFontCategoryFilter(cat)} className="px-2 py-1 rounded-md capitalize shrink-0 transition-colors" style={fontCategoryFilter === cat ? { background: T.panelAccent, color: T.panelAccentText, fontWeight: 700 } : { background: T.panelItemBg, color: T.panelSubtext }}>{cat}</button>
                       ))}
                     </div>
-
-                    {/* Font Search Input */}
                     <div className="relative">
                       <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5" style={{ color: T.panelSubtext }} />
-                      <input
-                        type="text"
-                        placeholder="Search font by name..."
-                        value={fontSearchQuery}
-                        onChange={(e) => setFontSearchQuery(e.target.value)}
-                        className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border-none focus:outline-none"
-                        style={{ background: T.panelItemBg, color: T.panelText }}
-                      />
+                      <input type="text" placeholder="Search font by name..." value={fontSearchQuery} onChange={(e) => setFontSearchQuery(e.target.value)} className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border-none focus:outline-none" style={{ background: T.panelItemBg, color: T.panelText }} />
                     </div>
-
-                    {/* Font Cards List */}
                     <div className="max-h-64 overflow-y-auto space-y-1 pt-1 text-xs no-scrollbar">
                       {filteredFonts.map((font) => (
-                        <button
-                          key={font.name}
-                          onClick={() => {
-                            setSelectedFont(font);
-                            setShowFontMenu(false);
-                          }}
-                          className="w-full text-left px-3 py-2 rounded-lg flex items-center justify-between transition-colors"
-                          style={
-                            selectedFont.name === font.name
-                              ? { background: T.panelAccent, color: T.panelAccentText, fontWeight: 600 }
-                              : { background: "transparent", color: T.panelText }
-                          }
-                          onMouseEnter={(e) => {
-                            if (selectedFont.name !== font.name) {
-                              (e.currentTarget as HTMLElement).style.background = T.panelItemBg;
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (selectedFont.name !== font.name) {
-                              (e.currentTarget as HTMLElement).style.background = "transparent";
-                            }
-                          }}
+                        <button key={font.name} onClick={() => { setSelectedFont(font); setShowFontMenu(false); }} className="w-full text-left px-3 py-2 rounded-lg flex items-center justify-between transition-colors" style={selectedFont.name === font.name ? { background: T.panelAccent, color: T.panelAccentText, fontWeight: 600 } : { background: "transparent", color: T.panelText }}
+                          onMouseEnter={(e) => { if (selectedFont.name !== font.name) (e.currentTarget as HTMLElement).style.background = T.panelItemBg; }}
+                          onMouseLeave={(e) => { if (selectedFont.name !== font.name) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                         >
                           <span style={{ fontFamily: font.family }} className="text-sm">{font.name}</span>
-                          <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: T.btnBg, color: T.panelSubtext }}>
-                            {font.category}
-                          </span>
+                          <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: T.btnBg, color: T.panelSubtext }}>{font.category}</span>
                         </button>
                       ))}
                     </div>
@@ -1157,79 +811,40 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                 )}
               </div>
 
-              {/* Font Size Controls */}
+              {/* Font Size */}
               <div className="flex items-center rounded-lg overflow-hidden" style={{ border: `1px solid ${T.btnBorder}` }}>
-                <button
-                  onClick={() => setFontSize(Math.max(12, fontSize - 2))}
-                  className="px-2 py-1.5 text-xs transition-colors"
-                  style={{ background: T.btnBg, color: T.btnText }}
-                  title="Smaller Font"
-                >
-                  <ZoomOut className="w-3.5 h-3.5" />
-                </button>
+                <button onClick={() => setFontSize(Math.max(12, fontSize - 2))} className="px-2 py-1.5 text-xs" style={{ background: T.btnBg, color: T.btnText }} title="Smaller Font"><ZoomOut className="w-3.5 h-3.5" /></button>
                 <span className="font-semibold text-xs px-1.5 min-w-[26px] text-center" style={{ background: T.btnBg, color: T.btnText }}>{fontSize}</span>
-                <button
-                  onClick={() => setFontSize(Math.min(44, fontSize + 2))}
-                  className="px-2 py-1.5 text-xs transition-colors"
-                  style={{ background: T.btnBg, color: T.btnText }}
-                  title="Larger Font"
-                >
-                  <ZoomIn className="w-3.5 h-3.5" />
-                </button>
+                <button onClick={() => setFontSize(Math.min(44, fontSize + 2))} className="px-2 py-1.5 text-xs" style={{ background: T.btnBg, color: T.btnText }} title="Larger Font"><ZoomIn className="w-3.5 h-3.5" /></button>
               </div>
 
               {/* Page Zoom */}
               <div className="hidden lg:flex items-center gap-1 px-2 py-1 rounded-lg" style={{ background: T.btnBg, color: T.btnText }}>
                 <span className="text-[11px] font-mono font-bold">{zoomScale}%</span>
-                <button onClick={() => setZoomScale(Math.min(180, zoomScale + 10))} className="text-xs font-bold px-1" title="Zoom In Page">+</button>
-                <button onClick={() => setZoomScale(Math.max(70, zoomScale - 10))} className="text-xs font-bold px-1" title="Zoom Out Page">-</button>
-                {zoomScale !== 100 && (
-                  <button onClick={() => setZoomScale(100)} className="p-0.5" title="Reset Zoom">
-                    <RotateCcw className="w-3 h-3" />
-                  </button>
-                )}
+                <button onClick={() => setZoomScale(Math.min(180, zoomScale + 10))} className="text-xs font-bold px-1" title="Zoom In">+</button>
+                <button onClick={() => setZoomScale(Math.max(70, zoomScale - 10))} className="text-xs font-bold px-1" title="Zoom Out">-</button>
+                {zoomScale !== 100 && <button onClick={() => setZoomScale(100)} className="p-0.5" title="Reset Zoom"><RotateCcw className="w-3 h-3" /></button>}
               </div>
 
               {/* Theme Picker */}
               <div className="relative">
-                <button
-                  onClick={() => setShowThemePicker(!showThemePicker)}
-                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                  style={showThemePicker ? btnActiveStyle : btnStyle}
-                  title="Switch Theme"
-                >
+                <button onClick={() => setShowThemePicker(!showThemePicker)} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors" style={showThemePicker ? btnActiveStyle : btnStyle} title="Switch Theme">
                   <Palette className="w-3.5 h-3.5" />
                   <span className="hidden md:inline">{T.emoji} {T.name}</span>
                 </button>
-
                 {showThemePicker && (
-                  <div
-                    className="absolute right-0 top-11 z-50 w-72 p-3 rounded-2xl shadow-2xl space-y-2"
-                    style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}
-                  >
+                  <div className="absolute right-0 top-11 z-50 w-72 p-3 rounded-2xl shadow-2xl space-y-2" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
                     <div className="flex items-center justify-between pb-2" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
                       <span className="font-bold text-xs">16 Themes</span>
-                      <button onClick={() => setShowThemePicker(false)} style={{ color: T.panelSubtext }}>
-                        <X className="w-4 h-4" />
-                      </button>
+                      <button onClick={() => setShowThemePicker(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
                     </div>
                     <div className="grid grid-cols-2 gap-1.5">
                       {THEME_ORDER.map((tid) => {
-                        const t = THEMES[tid];
-                        const isActive = theme === tid;
+                        const t = THEMES[tid]; const isActive = theme === tid;
                         return (
-                          <button
-                            key={tid}
-                            onClick={() => { setTheme(tid); setShowThemePicker(false); }}
-                            className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold transition-all"
-                            style={{
-                              background: isActive ? T.panelAccent : T.panelItemBg,
-                              color: isActive ? T.panelAccentText : T.panelText,
-                              border: isActive ? `1.5px solid ${T.panelAccent}` : `1px solid ${T.panelBorder}`,
-                            }}
-                          >
-                            <span className="text-base leading-none">{t.emoji}</span>
-                            <span>{t.name}</span>
+                          <button key={tid} onClick={() => { setTheme(tid); setShowThemePicker(false); }} className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold transition-all"
+                            style={{ background: isActive ? T.panelAccent : T.panelItemBg, color: isActive ? T.panelAccentText : T.panelText, border: isActive ? `1.5px solid ${T.panelAccent}` : `1px solid ${T.panelBorder}` }}>
+                            <span className="text-base leading-none">{t.emoji}</span><span>{t.name}</span>
                           </button>
                         );
                       })}
@@ -1239,34 +854,19 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
               </div>
 
               {/* Fullscreen */}
-              <button
-                onClick={toggleFullscreen}
-                className="p-1.5 rounded-lg hidden sm:inline-flex transition-colors"
-                style={btnStyle}
-                title="Toggle Fullscreen"
-              >
+              <button onClick={toggleFullscreen} className="p-1.5 rounded-lg hidden sm:inline-flex" style={btnStyle} title="Toggle Fullscreen">
                 {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
               </button>
 
               {/* TOC Toggle */}
               {toc.length > 0 && (
-                <button
-                  onClick={() => setShowToc(!showToc)}
-                  className="p-1.5 rounded-lg transition-colors"
-                  style={showToc ? btnActiveStyle : btnStyle}
-                  title="Table of Contents"
-                >
+                <button onClick={() => setShowToc(!showToc)} className="p-1.5 rounded-lg transition-colors" style={showToc ? btnActiveStyle : btnStyle} title="Table of Contents">
                   <List className="w-4 h-4" />
                 </button>
               )}
 
-              {/* Shortcuts Help */}
-              <button
-                onClick={() => setShowShortcuts(!showShortcuts)}
-                className="p-1.5 rounded-lg hidden sm:inline-flex transition-colors"
-                style={showShortcuts ? btnActiveStyle : btnStyle}
-                title="Keyboard Shortcuts"
-              >
+              {/* Shortcuts */}
+              <button onClick={() => setShowShortcuts(!showShortcuts)} className="p-1.5 rounded-lg hidden sm:inline-flex" style={showShortcuts ? btnActiveStyle : btnStyle} title="Keyboard Shortcuts">
                 <HelpCircle className="w-4 h-4" />
               </button>
             </div>
@@ -1277,41 +877,16 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
             {/* TOC Drawer */}
             {showToc && toc.length > 0 && (
-              <div
-                className="w-72 sm:w-80 p-4 space-y-2 text-xs shrink-0 overflow-y-auto z-30 shadow-xl no-scrollbar hide-scrollbar"
-                style={{ background: T.tocBg, borderRight: `1px solid ${T.tocBorder}`, color: T.panelText }}
-              >
+              <div className="w-72 sm:w-80 p-4 space-y-2 text-xs shrink-0 overflow-y-auto z-30 shadow-xl no-scrollbar hide-scrollbar" style={{ background: T.tocBg, borderRight: `1px solid ${T.tocBorder}`, color: T.panelText }}>
                 <div className="flex items-center justify-between pb-2 mb-2" style={{ borderBottom: `1px solid ${T.tocBorder}` }}>
                   <h4 className="font-bold text-sm">Table of Contents</h4>
-                  <button onClick={() => setShowToc(false)} style={{ color: T.panelSubtext }}>
-                    <X className="w-4 h-4" />
-                  </button>
+                  <button onClick={() => setShowToc(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
                 </div>
                 {toc.map((item, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      setCurrentChapterIndex(item.chapterIndex);
-                      setShowToc(false);
-                      if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
-                    }}
-                    className="w-full text-left p-2.5 rounded-xl transition-colors truncate font-medium"
-                    style={
-                      currentChapterIndex === item.chapterIndex
-                        ? { background: T.panelAccent, color: T.tocActiveText }
-                        : { background: "transparent", color: T.panelText }
-                    }
-                    onMouseEnter={(e) => {
-                      if (currentChapterIndex !== item.chapterIndex) {
-                        (e.currentTarget as HTMLElement).style.background = T.panelItemBg;
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (currentChapterIndex !== item.chapterIndex) {
-                        (e.currentTarget as HTMLElement).style.background = "transparent";
-                      }
-                    }}
-                  >
+                  <button key={idx} onClick={() => { setCurrentChapterIndex(item.chapterIndex); setShowToc(false); if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0; }} className="w-full text-left p-2.5 rounded-xl transition-colors truncate font-medium"
+                    style={currentChapterIndex === item.chapterIndex ? { background: T.panelAccent, color: T.tocActiveText } : { background: "transparent", color: T.panelText }}
+                    onMouseEnter={(e) => { if (currentChapterIndex !== item.chapterIndex) (e.currentTarget as HTMLElement).style.background = T.panelItemBg; }}
+                    onMouseLeave={(e) => { if (currentChapterIndex !== item.chapterIndex) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
                     {item.label}
                   </button>
                 ))}
@@ -1320,261 +895,161 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
             {/* Dictionary Sidebar Drawer */}
             {showDictionaryDrawer && (
-              <div
-                className="w-80 sm:w-96 p-4 space-y-3 text-xs shrink-0 overflow-y-auto z-30 shadow-2xl no-scrollbar hide-scrollbar"
-                style={{ background: T.panelBg, borderRight: `1px solid ${T.panelBorder}`, color: T.panelText }}
-              >
+              <div className="w-80 sm:w-96 p-4 space-y-3 text-xs shrink-0 overflow-y-auto z-30 shadow-2xl no-scrollbar hide-scrollbar" style={{ background: T.panelBg, borderRight: `1px solid ${T.panelBorder}`, color: T.panelText }}>
                 <div className="flex items-center justify-between pb-2.5" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
                   <span className="font-bold text-sm flex items-center gap-1.5" style={{ color: T.panelAccent }}>
-                    <BookOpen className="w-4 h-4" />
-                    Dictionary & Lexicon
+                    <BookOpen className="w-4 h-4" />Dictionary & Lexicon
                   </span>
-                  <button onClick={() => setShowDictionaryDrawer(false)} style={{ color: T.panelSubtext }}>
-                    <X className="w-4 h-4" />
-                  </button>
+                  <button onClick={() => setShowDictionaryDrawer(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
                 </div>
 
+                {/* Manual search — keeps its own state, does NOT clear when word is selected in text */}
                 <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder="Type word to define..."
-                    value={manualWordInput}
-                    onChange={(e) => setManualWordInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") executeDictionaryLookup(manualWordInput); }}
+                  <input type="text" placeholder="Type word to define..." value={manualWordInput} onChange={(e) => setManualWordInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") executeSidebarLookup(manualWordInput); }}
                     className="flex-1 px-3 py-2 text-xs rounded-xl focus:outline-none focus:ring-2"
-                    style={{ background: T.panelItemBg, color: T.panelText, border: `1px solid ${T.panelBorder}` }}
-                  />
-                  <button
-                    onClick={() => executeDictionaryLookup(manualWordInput)}
-                    className="px-3.5 py-2 rounded-xl font-bold text-xs hover:opacity-90 active:scale-95 transition-transform"
-                    style={{ background: T.panelAccent, color: T.panelAccentText }}
-                  >
-                    Lookup
-                  </button>
+                    style={{ background: T.panelItemBg, color: T.panelText, border: `1px solid ${T.panelBorder}` }} />
+                  <button onClick={() => executeSidebarLookup(manualWordInput)} className="px-3.5 py-2 rounded-xl font-bold text-xs hover:opacity-90 active:scale-95 transition-transform" style={{ background: T.panelAccent, color: T.panelAccentText }}>Lookup</button>
                 </div>
 
-                {dictionaryLoading ? (
+                {sidebarDictLoading ? (
                   <div className="p-8 text-center space-y-2">
                     <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin mx-auto" style={{ borderColor: T.panelAccent, borderTopColor: "transparent" }} />
                     <p className="text-xs" style={{ color: T.panelSubtext }}>Consulting world lexicons...</p>
                   </div>
-                ) : dictionaryData ? (
-                  <DictionaryResultPanel data={dictionaryData} T={T} isPlayingAudio={isPlayingAudio} onSpeak={speakWord} />
+                ) : sidebarDictData ? (
+                  <DictionaryResultPanel data={sidebarDictData} T={T} isPlayingAudio={isPlayingAudio} onSpeak={speakWord} onFetchHindi={() => fetchHindi(sidebarDictData.word, true)} isSidebar={true} />
                 ) : (
-                  <div className="p-4 rounded-xl text-xs space-y-2" style={{ background: T.panelItemBg, border: `1px solid ${T.panelBorder}` }}>
-                    <p className="font-semibold" style={{ color: T.panelText }}>
-                      💡 Double-click or select any word in the book to view definitions and audio pronunciation.
-                    </p>
+                  <div className="p-4 rounded-xl text-xs" style={{ background: T.panelItemBg, border: `1px solid ${T.panelBorder}` }}>
+                    <p className="font-semibold" style={{ color: T.panelText }}>💡 Select any word in the book, or type a word above and click Lookup.</p>
                   </div>
                 )}
               </div>
             )}
 
-            {/* ── FLOATING DICTIONARY BUBBLE (when sidebar closed) ─────── */}
+            {/* ── FLOATING DICTIONARY BUBBLE (selection-triggered, no sidebar) ── */}
             {selectedWord && !showDictionaryDrawer && (
-              <div style={getBubbleStyle()} className="animate-in fade-in slide-in-from-top-2 duration-200">
+              <div id="dict-bubble" style={getBubbleStyle()} className="animate-in fade-in duration-150">
                 <div className="flex items-center justify-between pb-2 mb-2" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-extrabold text-sm capitalize" style={{ color: T.panelAccent }}>
-                      {dictionaryData?.word || selectedWord}
-                    </span>
-                    <span className="font-mono text-[11px]" style={{ color: T.panelSubtext }}>
-                      {dictionaryData?.phonetic}
-                    </span>
-                    <button
-                      onClick={() => speakWord(dictionaryData?.word || selectedWord)}
-                      className="p-1 rounded transition-transform hover:scale-105"
-                      style={{ background: T.panelItemBg, color: T.panelAccent }}
-                      title="Pronounce Word"
-                    >
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-sm capitalize" style={{ color: T.panelAccent }}>{dictionaryData?.word || selectedWord}</span>
+                    <span className="font-mono text-[11px]" style={{ color: T.panelSubtext }}>{dictionaryData?.phonetic}</span>
+                    <button onClick={() => speakWord(dictionaryData?.word || selectedWord)} className="p-1 rounded transition-transform hover:scale-105" style={{ background: T.panelItemBg, color: T.panelAccent }} title="Pronounce">
                       <Volume2 className={`w-3.5 h-3.5 ${isPlayingAudio ? "animate-pulse" : ""}`} />
                     </button>
                   </div>
-                  <button onClick={() => setSelectedWord(null)} style={{ color: T.panelSubtext }}>
-                    <X className="w-4 h-4" />
-                  </button>
+                  <button onClick={() => setSelectedWord(null)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
                 </div>
 
                 {dictionaryLoading ? (
-                  <p className="py-2 text-xs" style={{ color: T.panelSubtext }}>Consulting dictionary...</p>
+                  <div className="flex items-center gap-2 py-3 justify-center">
+                    <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: T.panelAccent, borderTopColor: "transparent" }} />
+                    <span className="text-xs" style={{ color: T.panelSubtext }}>Looking up...</span>
+                  </div>
                 ) : dictionaryData ? (
                   <div className="space-y-2">
-                    <div className="max-h-52 overflow-y-auto no-scrollbar space-y-2">
+                    <div className="max-h-48 overflow-y-auto no-scrollbar space-y-2">
                       {dictionaryData.meanings.slice(0, 3).map((m, idx) => (
                         <div key={idx} className="space-y-1 pb-2" style={{ borderBottom: idx < 2 ? `1px solid ${T.panelBorder}` : "none" }}>
                           <span className="font-semibold italic text-[11px]" style={{ color: T.panelAccent }}>{m.partOfSpeech}</span>
                           <p className="leading-relaxed text-xs" style={{ color: T.panelText }}>{m.definition}</p>
-                          {m.example && (
-                            <p className="italic text-[11px]" style={{ color: T.panelSubtext }}>&ldquo;{m.example}&rdquo;</p>
-                          )}
+                          {m.example && <p className="italic text-[11px]" style={{ color: T.panelSubtext }}>&ldquo;{m.example}&rdquo;</p>}
                         </div>
                       ))}
                     </div>
 
-                    {/* Hindi Translation */}
-                    {dictionaryData.hindiTranslation && (
-                      <div className="mt-2 pt-2 rounded-lg px-3 py-2" style={{ background: T.panelItemBg, border: `1px solid ${T.panelBorder}` }}>
+                    {/* Hindi — shown only after user clicks Translate */}
+                    {dictionaryData.hindiTranslation ? (
+                      <div className="mt-1 px-3 py-2 rounded-lg" style={{ background: T.panelItemBg, border: `1px solid ${T.panelBorder}` }}>
                         <div className="flex items-center gap-1.5 mb-1">
-                          <span className="text-base">🇮🇳</span>
-                          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: T.panelSubtext }}>Hindi Translation</span>
+                          <span className="text-sm">🇮🇳</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: T.panelSubtext }}>Hindi</span>
                         </div>
-                        <p className="text-sm font-bold" style={{ color: T.panelText, fontFamily: "'Noto Sans Devanagari', sans-serif" }}>
-                          {dictionaryData.hindiTranslation}
-                        </p>
+                        <p className="text-sm font-bold" style={{ color: T.panelText, fontFamily: "'Noto Sans Devanagari', sans-serif" }}>{dictionaryData.hindiTranslation}</p>
                       </div>
+                    ) : (
+                      <button onClick={() => fetchHindi(dictionaryData.word, false)} className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90" style={{ background: T.panelItemBg, color: T.panelText, border: `1px solid ${T.panelBorder}` }}>
+                        <Globe className="w-3.5 h-3.5" style={{ color: T.panelAccent }} />🇮🇳 Translate to Hindi
+                      </button>
                     )}
 
                     <div className="pt-1 text-[10px] flex items-center justify-between" style={{ color: T.panelSubtext }}>
                       <span>Source: {dictionaryData.source}</span>
-                      <button
-                        onClick={() => { setShowDictionaryDrawer(true); setSelectedWord(null); }}
-                        className="underline"
-                        style={{ color: T.panelAccent }}
-                      >
-                        Open full panel →
-                      </button>
+                      <button onClick={() => { setShowDictionaryDrawer(true); setSelectedWord(null); }} className="underline" style={{ color: T.panelAccent }}>Full panel →</button>
                     </div>
                   </div>
                 ) : (
-                  <p className="py-1 text-xs" style={{ color: T.panelSubtext }}>Searching dictionary definition...</p>
+                  <p className="py-1 text-xs" style={{ color: T.panelSubtext }}>Searching definition...</p>
                 )}
               </div>
             )}
 
             {/* Keyboard Shortcuts Modal */}
             {showShortcuts && (
-              <div
-                className="absolute top-4 left-4 z-40 w-72 p-4 rounded-2xl shadow-2xl space-y-3 text-xs"
-                style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}
-              >
+              <div className="absolute top-4 left-4 z-40 w-72 p-4 rounded-2xl shadow-2xl space-y-3 text-xs" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
                 <div className="flex items-center justify-between pb-2" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
                   <span className="font-bold text-sm">Keyboard Shortcuts</span>
-                  <button onClick={() => setShowShortcuts(false)} style={{ color: T.panelSubtext }}>
-                    <X className="w-4 h-4" />
-                  </button>
+                  <button onClick={() => setShowShortcuts(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
                 </div>
                 <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <kbd className="px-1.5 py-0.5 rounded font-mono text-xs" style={{ background: T.btnBg, color: T.btnText }}>→</kbd>
-                    <span style={{ color: T.panelSubtext }}>Next Page</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <kbd className="px-1.5 py-0.5 rounded font-mono text-xs" style={{ background: T.btnBg, color: T.btnText }}>←</kbd>
-                    <span style={{ color: T.panelSubtext }}>Previous Page</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <kbd className="px-1.5 py-0.5 rounded font-mono text-xs" style={{ background: T.btnBg, color: T.btnText }}>Space</kbd>
-                    <span style={{ color: T.panelSubtext }}>Next Page</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <kbd className="px-1.5 py-0.5 rounded font-mono text-xs" style={{ background: T.btnBg, color: T.btnText }}>Double-Click Word</kbd>
-                    <span style={{ color: T.panelSubtext }}>Dictionary</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <kbd className="px-1.5 py-0.5 rounded font-mono text-xs" style={{ background: T.btnBg, color: T.btnText }}>Esc</kbd>
-                    <span style={{ color: T.panelSubtext }}>Close Reader</span>
-                  </div>
+                  {[["→ / Space","Next Page"],["←","Previous Page"],["B","Bookmark page"],["Esc","Close reader"]].map(([key, action]) => (
+                    <div key={key} className="flex justify-between">
+                      <kbd className="px-1.5 py-0.5 rounded font-mono text-xs" style={{ background: T.btnBg, color: T.btnText }}>{key}</kbd>
+                      <span style={{ color: T.panelSubtext }}>{action}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded font-mono text-xs" style={{ background: T.btnBg, color: T.btnText }}>Select Word</kbd><span style={{ color: T.panelSubtext }}>Dictionary</span></div>
                 </div>
               </div>
             )}
 
-            {/* ── READER VIEWPORT ─────────────────────────────────────── */}
+            {/* ── READER VIEWPORT ──────────────────────────────────────── */}
             <div className="flex-1 w-full h-full relative flex items-center justify-center overflow-hidden">
-              {/* Left / Right Click Nav Margins for Kindle Page Turn */}
+              {/* Left / Right Click Nav for Kindle */}
               {scrollMode === "horizontal" && (
                 <>
-                  <button
-                    onClick={() => triggerPageTurn("prev")}
-                    disabled={currentChapterIndex === 0}
-                    className="absolute left-0 top-0 bottom-0 w-16 sm:w-24 z-20 cursor-pointer flex items-center justify-start pl-3 opacity-0 hover:opacity-100 transition-opacity disabled:pointer-events-none"
-                    style={{ background: "linear-gradient(to right, rgba(0,0,0,0.12), transparent)" }}
-                    title="Previous Page (←)"
-                  >
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg" style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}>
-                      <ChevronLeft className="w-5 h-5" />
-                    </div>
+                  <button onClick={() => triggerPageTurn("prev")} disabled={currentChapterIndex === 0} className="absolute left-0 top-0 bottom-0 w-16 sm:w-24 z-20 cursor-pointer flex items-center justify-start pl-3 opacity-0 hover:opacity-100 transition-opacity disabled:pointer-events-none" style={{ background: "linear-gradient(to right, rgba(0,0,0,0.12), transparent)" }} title="Previous Page (←)">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg" style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}><ChevronLeft className="w-5 h-5" /></div>
                   </button>
-                  <button
-                    onClick={() => triggerPageTurn("next")}
-                    disabled={currentChapterIndex >= chapters.length - 1}
-                    className="absolute right-0 top-0 bottom-0 w-16 sm:w-24 z-20 cursor-pointer flex items-center justify-end pr-3 opacity-0 hover:opacity-100 transition-opacity disabled:pointer-events-none"
-                    style={{ background: "linear-gradient(to left, rgba(0,0,0,0.12), transparent)" }}
-                    title="Next Page (→)"
-                  >
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg" style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}>
-                      <ChevronRight className="w-5 h-5" />
-                    </div>
+                  <button onClick={() => triggerPageTurn("next")} disabled={currentChapterIndex >= chapters.length - 1} className="absolute right-0 top-0 bottom-0 w-16 sm:w-24 z-20 cursor-pointer flex items-center justify-end pr-3 opacity-0 hover:opacity-100 transition-opacity disabled:pointer-events-none" style={{ background: "linear-gradient(to left, rgba(0,0,0,0.12), transparent)" }} title="Next Page (→)">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg" style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}><ChevronRight className="w-5 h-5" /></div>
                   </button>
                 </>
               )}
 
-              {/* Reader Document Container with Zoom & Page Turn Transitions */}
+              {/* Reader Document Container */}
               <div
                 ref={scrollContainerRef}
                 onClick={handleContentClick}
-                className={`w-full h-full no-scrollbar hide-scrollbar ${
-                  scrollMode === "vertical" ? "overflow-y-auto overflow-x-hidden p-4 sm:p-10" : "overflow-y-auto overflow-x-hidden p-4 sm:p-10 flex flex-col justify-start items-center"
-                }`}
+                className={`w-full h-full no-scrollbar hide-scrollbar ${scrollMode === "vertical" ? "overflow-y-auto overflow-x-hidden p-4 sm:p-10" : "overflow-y-auto overflow-x-hidden p-4 sm:p-10 flex flex-col justify-start items-center"}`}
                 style={{
-                  transform: `scale(${zoomScale / 100}) ${
-                    pageFlipAnim === "next" ? "translateX(-12px)" : pageFlipAnim === "prev" ? "translateX(12px)" : ""
-                  }`,
+                  transform: `scale(${zoomScale / 100}) ${pageFlipAnim === "next" ? "translateX(-12px)" : pageFlipAnim === "prev" ? "translateX(12px)" : ""}`,
                   opacity: pageFlipAnim ? 0.65 : 1,
                   transformOrigin: "top center",
                   transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease",
                 }}
               >
                 {scrollMode === "vertical" ? (
-                  /* Vertical Continuous Scroll: All Chapters Stacked */
                   <div className="max-w-3xl mx-auto w-full space-y-16 pb-24">
                     {chapters.map((ch, idx) => (
                       <article key={ch.id || idx} className="space-y-6" style={{ borderBottom: `1px solid ${T.toolbarBorder}`, paddingBottom: "4rem" }}>
                         <header className="pb-3" style={{ borderBottom: `1px solid ${T.toolbarBorder}` }}>
-                          <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: T.panelAccent }}>
-                            Chapter {idx + 1} of {chapters.length}
-                          </span>
-                          <h2 className="text-2xl sm:text-3xl font-extrabold mt-1 tracking-tight" style={{ color: T.text }}>
-                            {ch.title}
-                          </h2>
+                          <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: T.panelAccent }}>Chapter {idx + 1} of {chapters.length}</span>
+                          <h2 className="text-2xl sm:text-3xl font-extrabold mt-1 tracking-tight" style={{ color: T.text }}>{ch.title}</h2>
                         </header>
-                        <div
-                          className="leading-relaxed space-y-5 select-text"
-                          style={{
-                            fontSize: `${fontSize}px`,
-                            fontFamily: selectedFont.family,
-                            lineHeight: "1.85",
-                            color: T.proseText,
-                          }}
-                          dangerouslySetInnerHTML={{ __html: ch.html }}
-                          onMouseUp={handleTextMouseUp}
-                        />
+                        <div className="leading-relaxed space-y-5 select-text" style={{ fontSize: `${fontSize}px`, fontFamily: selectedFont.family, lineHeight: "1.85", color: T.proseText }} dangerouslySetInnerHTML={{ __html: ch.html }} onMouseUp={handleTextMouseUp} />
                       </article>
                     ))}
                   </div>
                 ) : (
-                  /* Horizontal Paginated View: One Chapter per View */
                   <div className="max-w-3xl mx-auto w-full pb-20 pt-4">
                     {currentChapter ? (
                       <article className="space-y-6">
                         <header className="pb-3" style={{ borderBottom: `1px solid ${T.toolbarBorder}` }}>
-                          <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: T.panelAccent }}>
-                            Chapter {currentChapterIndex + 1} of {chapters.length}
-                          </span>
-                          <h2 className="text-2xl sm:text-3xl font-extrabold mt-1 tracking-tight" style={{ color: T.text }}>
-                            {currentChapter.title}
-                          </h2>
+                          <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: T.panelAccent }}>Chapter {currentChapterIndex + 1} of {chapters.length}</span>
+                          <h2 className="text-2xl sm:text-3xl font-extrabold mt-1 tracking-tight" style={{ color: T.text }}>{currentChapter.title}</h2>
                         </header>
-                        <div
-                          className="leading-relaxed space-y-5 select-text"
-                          style={{
-                            fontSize: `${fontSize}px`,
-                            fontFamily: selectedFont.family,
-                            lineHeight: "1.85",
-                            color: T.proseText,
-                          }}
-                          dangerouslySetInnerHTML={{ __html: currentChapter.html }}
-                          onMouseUp={handleTextMouseUp}
-                        />
+                        <div className="leading-relaxed space-y-5 select-text" style={{ fontSize: `${fontSize}px`, fontFamily: selectedFont.family, lineHeight: "1.85", color: T.proseText }} dangerouslySetInnerHTML={{ __html: currentChapter.html }} onMouseUp={handleTextMouseUp} />
                       </article>
                     ) : (
                       <p className="text-center py-16" style={{ color: T.subtext }}>No chapter content loaded.</p>
@@ -1585,134 +1060,130 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             </div>
           </div>
 
-          {/* ── BOTTOM NAV BAR ──────────────────────────────────────────── */}
-          <div
-            className="h-12 px-4 sm:px-8 flex items-center justify-between text-xs font-semibold shrink-0 z-20"
-            style={{ background: T.toolbarBg, borderTop: `1px solid ${T.toolbarBorder}`, color: T.toolbarText }}
-          >
-            <button
-              onClick={() => triggerPageTurn("prev")}
-              disabled={currentChapterIndex === 0}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl active:scale-95 transition-all shadow disabled:opacity-40 disabled:pointer-events-none"
-              style={{ background: T.panelAccent, color: T.panelAccentText }}
-              title="Previous Page"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Previous</span>
-            </button>
-
-            <div className="flex items-center gap-3">
-              <span style={{ color: T.subtext }}>
-                Chapter {currentChapterIndex + 1} of {Math.max(1, chapters.length)} ({progressPercent}%)
-              </span>
-              <div className="w-24 sm:w-36 h-2 rounded-full overflow-hidden" style={{ background: T.progressBg }}>
+          {/* ── BOTTOM PROGRESS & NAV BAR ────────────────────────────── */}
+          <div className="shrink-0 z-20" style={{ background: T.toolbarBg, borderTop: `1px solid ${T.toolbarBorder}` }}>
+            {/* ── FANCY PROGRESS BAR ── */}
+            <div className="relative w-full h-3 overflow-hidden" style={{ background: T.progressBg }}>
+              {/* Animated gradient fill */}
+              <div
+                className="h-full transition-all duration-500 ease-out relative overflow-hidden"
+                style={{ width: `${Math.max(1, displayProgress)}%`, background: T.progressGrad }}
+              >
+                {/* Shimmer effect */}
                 <div
-                  className="h-full transition-all duration-300 rounded-full"
-                  style={{ width: `${Math.max(5, progressPercent)}%`, background: T.progressFg }}
+                  className="absolute inset-0 -skew-x-12"
+                  style={{
+                    background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%)",
+                    animation: "shimmer 2s infinite",
+                    width: "200%",
+                    left: "-100%",
+                  }}
                 />
               </div>
+              {/* Percentage label centered on bar */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-[9px] font-bold tracking-wider mix-blend-overlay select-none" style={{ color: "#fff", textShadow: "0 0 4px rgba(0,0,0,0.8)" }}>
+                  {displayProgress}%{scrollMode === "vertical" ? " read" : ` — ch ${currentChapterIndex + 1}/${chapters.length}`}
+                </span>
+              </div>
+              {/* Glow dot at progress tip */}
+              {displayProgress > 0 && displayProgress < 100 && (
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full shadow-lg"
+                  style={{ left: `calc(${displayProgress}% - 6px)`, background: T.progressFg, boxShadow: `0 0 8px ${T.progressFg}` }}
+                />
+              )}
             </div>
 
-            <button
-              onClick={() => triggerPageTurn("next")}
-              disabled={currentChapterIndex >= chapters.length - 1}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl active:scale-95 transition-all shadow disabled:opacity-40 disabled:pointer-events-none"
-              style={{ background: T.panelAccent, color: T.panelAccentText }}
-              title="Next Page"
-            >
-              <span className="hidden sm:inline">Next</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+            {/* Nav row */}
+            <div className="h-11 px-4 sm:px-8 flex items-center justify-between text-xs font-semibold">
+              <button onClick={() => triggerPageTurn("prev")} disabled={currentChapterIndex === 0} className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl active:scale-95 transition-all shadow disabled:opacity-40 disabled:pointer-events-none" style={{ background: T.panelAccent, color: T.panelAccentText }} title="Previous Page">
+                <ArrowLeft className="w-3.5 h-3.5" /><span className="hidden sm:inline">Previous</span>
+              </button>
+
+              <div className="flex items-center gap-2" style={{ color: T.subtext }}>
+                {scrollMode === "vertical" ? (
+                  <span>{verticalProgress}% through book</span>
+                ) : (
+                  <span>Chapter {currentChapterIndex + 1} / {Math.max(1, chapters.length)}</span>
+                )}
+                {/* Bookmark quick indicator */}
+                {isCurrentPageBookmarked && (
+                  <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style={{ background: T.panelAccent + "30", color: T.panelAccent }}>
+                    <BookmarkCheck className="w-3 h-3" /> Bookmarked
+                  </span>
+                )}
+              </div>
+
+              <button onClick={() => triggerPageTurn("next")} disabled={currentChapterIndex >= chapters.length - 1} className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl active:scale-95 transition-all shadow disabled:opacity-40 disabled:pointer-events-none" style={{ background: T.panelAccent, color: T.panelAccentText }} title="Next Page">
+                <span className="hidden sm:inline">Next</span><ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
+
+          {/* Shimmer keyframe via style tag */}
+          <style>{`
+            @keyframes shimmer {
+              0% { transform: translateX(-100%) skewX(-12deg); }
+              100% { transform: translateX(200%) skewX(-12deg); }
+            }
+          `}</style>
         </div>
       ) : null}
     </div>
   );
 }
 
-// ─── DICTIONARY RESULT PANEL (reused in sidebar) ───────────────────────────
+// ─── DICTIONARY RESULT PANEL ──────────────────────────────────────────────────
 
 function DictionaryResultPanel({
-  data,
-  T,
-  isPlayingAudio,
-  onSpeak,
+  data, T, isPlayingAudio, onSpeak, onFetchHindi, isSidebar,
 }: {
-  data: DictionaryResult;
-  T: ThemeConfig;
-  isPlayingAudio: boolean;
-  onSpeak: (word: string) => void;
+  data: DictionaryResult; T: ThemeConfig; isPlayingAudio: boolean;
+  onSpeak: (w: string) => void; onFetchHindi: () => void; isSidebar: boolean;
 }) {
   return (
     <div className="space-y-3 pt-2">
-      <div
-        className="flex items-center justify-between p-3 rounded-2xl"
-        style={{ background: T.panelItemBg, border: `1px solid ${T.panelBorder}` }}
-      >
+      <div className="flex items-center justify-between p-3 rounded-2xl" style={{ background: T.panelItemBg, border: `1px solid ${T.panelBorder}` }}>
         <div>
-          <span className="font-extrabold text-lg capitalize block" style={{ color: T.panelText }}>
-            {data.word}
-          </span>
-          <span className="font-mono text-xs" style={{ color: T.panelAccent }}>
-            {data.phonetic}
-          </span>
+          <span className="font-extrabold text-lg capitalize block" style={{ color: T.panelText }}>{data.word}</span>
+          <span className="font-mono text-xs" style={{ color: T.panelAccent }}>{data.phonetic}</span>
         </div>
-        <button
-          onClick={() => onSpeak(data.word)}
-          className="p-2.5 rounded-xl shadow-md hover:opacity-90 transition-all"
-          style={{
-            background: T.panelAccent,
-            color: T.panelAccentText,
-            outline: isPlayingAudio ? `3px solid ${T.panelAccent}` : "none",
-            outlineOffset: "2px",
-          }}
-          title="Pronounce with Audio Speech"
-        >
+        <button onClick={() => onSpeak(data.word)} className="p-2.5 rounded-xl shadow-md hover:opacity-90 transition-all"
+          style={{ background: T.panelAccent, color: T.panelAccentText, outline: isPlayingAudio ? `3px solid ${T.panelAccent}` : "none", outlineOffset: "2px" }} title="Pronounce">
           <Volume2 className={`w-4 h-4 ${isPlayingAudio ? "animate-pulse" : ""}`} />
         </button>
       </div>
 
       <div className="space-y-2.5 pt-1">
         {data.meanings.map((m, idx) => (
-          <div
-            key={idx}
-            className="p-3 rounded-xl space-y-1.5"
-            style={{ background: T.panelItemBg, border: `1px solid ${T.panelBorder}` }}
-          >
-            <span
-              className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide"
-              style={{ background: T.panelAccent + "22", color: T.panelAccent }}
-            >
-              {m.partOfSpeech}
-            </span>
-            <p className="leading-relaxed text-xs" style={{ color: T.panelText }}>
-              {m.definition}
-            </p>
-            {m.example && (
-              <p className="italic text-[11px] pl-2" style={{ color: T.panelSubtext, borderLeft: `2px solid ${T.panelAccent}` }}>
-                &ldquo;{m.example}&rdquo;
-              </p>
-            )}
+          <div key={idx} className="p-3 rounded-xl space-y-1.5" style={{ background: T.panelItemBg, border: `1px solid ${T.panelBorder}` }}>
+            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide" style={{ background: T.panelAccent + "22", color: T.panelAccent }}>{m.partOfSpeech}</span>
+            <p className="leading-relaxed text-xs" style={{ color: T.panelText }}>{m.definition}</p>
+            {m.example && <p className="italic text-[11px] pl-2" style={{ color: T.panelSubtext, borderLeft: `2px solid ${T.panelAccent}` }}>&ldquo;{m.example}&rdquo;</p>}
           </div>
         ))}
       </div>
 
-      {/* Hindi Translation */}
-      {data.hindiTranslation && (
+      {/* Hindi Translation — shown after button click */}
+      {data.hindiTranslation ? (
         <div className="p-3 rounded-xl" style={{ background: T.panelItemBg, border: `1px solid ${T.panelBorder}` }}>
           <div className="flex items-center gap-2 mb-1.5">
             <span className="text-lg">🇮🇳</span>
             <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: T.panelSubtext }}>Hindi Translation</span>
           </div>
-          <p className="text-base font-bold" style={{ color: T.panelText, fontFamily: "'Noto Sans Devanagari', sans-serif" }}>
-            {data.hindiTranslation}
-          </p>
+          <p className="text-base font-bold" style={{ color: T.panelText, fontFamily: "'Noto Sans Devanagari', sans-serif" }}>{data.hindiTranslation}</p>
         </div>
+      ) : (
+        <button onClick={onFetchHindi} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-90" style={{ background: T.panelItemBg, color: T.panelText, border: `1px solid ${T.panelBorder}` }}>
+          <Globe className="w-3.5 h-3.5" style={{ color: T.panelAccent }} />
+          🇮🇳 Translate to Hindi
+        </button>
       )}
 
-      <div className="pt-2 text-[10px] flex items-center justify-between" style={{ color: T.panelSubtext }}>
+      <div className="pt-1 text-[10px] flex items-center justify-between" style={{ color: T.panelSubtext }}>
         <span>Source: {data.source}</span>
-        <span>100% Offline Ready</span>
+        <span>Lumina Reader</span>
       </div>
     </div>
   );

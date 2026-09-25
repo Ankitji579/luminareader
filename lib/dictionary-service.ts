@@ -337,11 +337,6 @@ export async function lookupWordComprehensive(rawWord: string): Promise<Dictiona
     };
   }
 
-  // Fetch Hindi translation in parallel (non-blocking enrichment)
-  const hindiTranslation = await fetchHindiTranslation(cleanWord);
-  if (hindiTranslation) {
-    result.hindiTranslation = hindiTranslation;
-  }
-
+  // Hindi translation is now fetched on-demand (user button click), not here
   return result;
 }
