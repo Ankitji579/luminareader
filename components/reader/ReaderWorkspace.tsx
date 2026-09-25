@@ -880,28 +880,42 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   const jumpToChapter = useCallback((chapterIdx: number, anchor?: string) => {
     setCurrentChapterIndex(chapterIdx);
     setTimeout(() => {
+      let targetEl = null;
+      if (anchor) {
+        targetEl = document.getElementById(anchor) || document.querySelector(`[name="${anchor}"]`);
+      }
+      if (scrollMode === "vertical" && !targetEl) {
+        targetEl = document.getElementById(`chapter-${chapterIdx}`);
+      }
+      
       if (scrollMode === "vertical") {
-        if (anchor) {
-          const el = document.getElementById(anchor) || document.querySelector(`[name="${anchor}"]`);
-          if (el) {
-            el.scrollIntoView({ behavior: "smooth", block: "start" });
-            return;
-          }
+        if (targetEl && scrollContainerRef.current) {
+          console.log("Jumping to vertical chapter", chapterIdx, targetEl);
+          // Safest cross-browser scrolling approach
+          const container = scrollContainerRef.current;
+          const containerRect = container.getBoundingClientRect();
+          const targetRect = targetEl.getBoundingClientRect();
+          
+          // Since container has transform: scale, we unscale the difference
+          const scale = zoomScale / 100;
+          const unscaledDiff = (targetRect.top - containerRect.top) / scale;
+          
+          container.scrollTo({ top: container.scrollTop + unscaledDiff - 20, behavior: "smooth" });
         }
-        const chEl = document.getElementById(`chapter-${chapterIdx}`);
-        if (chEl) chEl.scrollIntoView({ behavior: "smooth", block: "start" });
       } else {
-        if (anchor) {
-          const el = document.getElementById(anchor) || document.querySelector(`[name="${anchor}"]`);
-          if (el) {
-            el.scrollIntoView({ behavior: "smooth", block: "start" });
-            return;
-          }
+        if (targetEl && scrollContainerRef.current) {
+          const container = scrollContainerRef.current;
+          const containerRect = container.getBoundingClientRect();
+          const targetRect = targetEl.getBoundingClientRect();
+          const scale = zoomScale / 100;
+          const unscaledDiff = (targetRect.top - containerRect.top) / scale;
+          container.scrollTo({ top: container.scrollTop + unscaledDiff - 20, behavior: "smooth" });
+        } else if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = 0;
         }
-        if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
       }
     }, 50);
-  }, [scrollMode]);
+  }, [scrollMode, zoomScale]);
 
   const handleContentClick = (e: React.MouseEvent) => {
     const anchorEl = (e.target as HTMLElement).closest("a");
