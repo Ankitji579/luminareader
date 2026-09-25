@@ -464,6 +464,9 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   useEffect(() => {
     if (!isReading || !bookTitle) return;
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) {
+        return; // Do not count time if the user switches to another tab (e.g. YouTube)
+      }
       setReadingTime(prev => {
         const next = prev + 1;
         if (next % 5 === 0) localStorage.setItem(`lumina_time_${bookTitle}`, next.toString());
