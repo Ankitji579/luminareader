@@ -18,6 +18,8 @@ import {
   Volume2, MoveVertical, MoveHorizontal, Compass, Maximize2, Minimize2,
   ChevronLeft, ChevronRight, Palette, Bookmark, BookmarkCheck, Globe, Highlighter, Eraser,
 } from "lucide-react";
+import PdfViewer from "./PdfViewer";
+
 import { parseEpubArchive, ParsedBook, ParsedChapter, TocItem } from "@/lib/epub-parser";
 import { GOOGLE_FONTS, FontOption } from "@/lib/fonts-data";
 import { lookupWordComprehensive, DictionaryResult } from "@/lib/dictionary-service";
@@ -287,6 +289,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   // Book & Content States
   const [fileName, setFileName] = useState<string>("");
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [currentFile, setCurrentFile] = useState<File | Blob | null>(null);
   const [fileType, setFileType] = useState<string>("");
   const [isReading, setIsReading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -702,6 +705,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         setIsReading(true);
         setLoading(false);
       } else if (ext === "pdf") {
+        setCurrentFile(f);
         const url = URL.createObjectURL(f);
         setPdfUrl(url);
         setBookTitle(f.name.replace(/\.[^/.]+$/, ""));
@@ -1630,8 +1634,10 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                   transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease",
                 }}
               >
-                {fileType === "pdf" && pdfUrl ? (
-                   <iframe src={pdfUrl} className="w-full h-full border-none" style={{ minHeight: '85vh' }} title="PDF Viewer" />
+                {fileType === "pdf" && currentFile ? (
+                   <div className="w-full h-full p-4 sm:p-10" style={{ background: T.bg }}>
+                     <PdfViewer file={currentFile} zoomScale={zoomScale} />
+                   </div>
                 ) : scrollMode === "vertical" ? (
                   <div className="max-w-3xl mx-auto w-full space-y-16 pb-24">
                     {chapters.map((ch, idx) => (
