@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { 
   Upload, BookOpen, Sun, Moon, Book, ZoomIn, ZoomOut, 
   List, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2, 
-  Maximize, Minimize, Search, X, Type, ChevronDown, Layers, HelpCircle, MoveVertical, MoveHorizontal 
+  Maximize, Minimize, Search, X, Type, ChevronDown, HelpCircle, RotateCcw 
 } from "lucide-react";
 import ePub, { Book as EpubBook, Rendition, NavItem } from "epubjs";
 import { GOOGLE_FONTS, FontOption } from "@/lib/fonts-data";
@@ -34,14 +34,14 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
   // Customization State
   const [fontSize, setFontSize] = useState<number>(18);
+  const [zoomScale, setZoomScale] = useState<number>(100);
   const [theme, setTheme] = useState<"light" | "sepia" | "dark" | "oled">("light");
   const [selectedFont, setSelectedFont] = useState<FontOption>(GOOGLE_FONTS[0]);
-  const [scrollMode, setScrollMode] = useState<"horizontal" | "vertical">("horizontal");
   const [showFontMenu, setShowFontMenu] = useState(false);
   const [fontSearchQuery, setFontSearchQuery] = useState("");
   const [showToc, setShowToc] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [pageTurnAnim, setPageTurnAnim] = useState(false);
+  const [pageFlipAnim, setPageFlipAnim] = useState<"next" | "prev" | null>(null);
 
   // Dictionary Popup State
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
@@ -50,7 +50,6 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   const [dictionaryLoading, setDictionaryLoading] = useState(false);
 
   const viewerRef = useRef<HTMLDivElement>(null);
-  const keyIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];
@@ -125,16 +124,9 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     }
   };
 
-  // Dynamically load Google Font into parent & EpubJS iframe
-  const loadGoogleFont = (googleName: string) => {
-    const href = `https://fonts.googleapis.com/css2?family=${googleName}:wght@400;600;700&display=swap`;
-    if (typeof document !== 'undefined' && !document.querySelector(`link[href="${href}"]`)) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = href;
-      document.head.appendChild(link);
-    }
-    return href;
+  // Helper to construct Google Font stylesheet URL
+  const getGoogleFontHref = (googleName: string) => {
+    return `https://fonts.googleapis.com/css2?family=${googleName}:wght@400;600;700&display=swap`;
   };
 
   // Render EpubJS rendition
@@ -146,15 +138,23 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         width: "100%",
         height: "100%",
         spread: "none",
-        flow: scrollMode === "horizontal" ? "paginated" : "scrolled-doc"
+        flow: "paginated"
       });
 
+      // Register EpubJS content hooks for iframe styles & events
       rend.hooks.content.register((contents: any) => {
-        const fontHref = loadGoogleFont(selectedFont.googleName);
-        contents.addStylesheet(fontHref);
+        const doc = contents.document;
+        if (!doc) return;
 
-        // Inject font family stylesheet directly into iframe document
-        const fontCss = `
+        // 1. Inject font stylesheet directly into iframe
+        const fontHref = getGoogleFontHref(selectedFont.googleName);
+        let fontStyleTag = doc.getElementById('lumina-custom-font');
+        if (!fontStyleTag) {
+          fontStyleTag = doc.createElement('style');
+          fontStyleTag.id = 'lumina-custom-font';
+          doc.head.appendChild(fontStyleTag);
+        }
+        fontStyleTag.innerHTML = `
           @import url('${fontHref}');
           * {
             font-family: ${selectedFont.family} !important;
@@ -173,37 +173,43 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             box-sizing: border-box !important;
           }
         `;
-        const style = contents.document.createElement('style');
-        style.innerHTML = fontCss;
-        contents.document.head.appendChild(style);
 
-        const doc = contents.document;
-        if (doc) {
-          const svgs = doc.querySelectorAll('svg');
-          svgs.forEach((svg: any) => {
-            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-            svg.style.maxWidth = '100%';
-            svg.style.maxHeight = '70vh';
-          });
-          const imgs = doc.querySelectorAll('img');
-          imgs.forEach((img: any) => {
-            img.style.objectFit = 'contain';
-            img.style.maxHeight = '70vh';
-            img.style.maxWidth = '100%';
-          });
-        }
+        // 2. Clean inline SVG / IMG attributes
+        const svgs = doc.querySelectorAll('svg');
+        svgs.forEach((svg: any) => {
+          svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+          svg.style.maxWidth = '100%';
+          svg.style.maxHeight = '70vh';
+        });
+        const imgs = doc.querySelectorAll('img');
+        imgs.forEach((img: any) => {
+          img.style.objectFit = 'contain';
+          img.style.maxHeight = '70vh';
+          img.style.maxWidth = '100%';
+        });
+
+        // 3. Attach Keyboard Arrow Listener INSIDE the iframe document
+        doc.addEventListener('keydown', (e: KeyboardEvent) => {
+          if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+            triggerPageTurn('next', rend);
+          } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+            triggerPageTurn('prev', rend);
+          } else if (e.key === 'Escape') {
+            setIsReading(false);
+          }
+        });
+
+        // 4. Attach Mouseup / Selection Listener INSIDE the iframe document
+        doc.addEventListener('mouseup', () => {
+          const selection = contents.window.getSelection()?.toString() || "";
+          const cleanText = selection.replace(/[^a-zA-Z]/g, '').trim();
+          if (cleanText && cleanText.length >= 2 && cleanText.length <= 30) {
+            lookupWord(cleanText);
+          }
+        });
       });
 
       rend.display();
-
-      // Dictionary Text Selection Listener
-      rend.on("selected", (cfiRange: string, contents: any) => {
-        const rawText = contents.window.getSelection().toString();
-        const cleanText = rawText.replace(/[^a-zA-Z]/g, '').trim();
-        if (cleanText && cleanText.length >= 2 && cleanText.length <= 30) {
-          lookupWord(cleanText);
-        }
-      });
 
       rend.on("relocated", (location: any) => {
         if (location && location.start && epubBook.locations && epubBook.locations.length()) {
@@ -221,8 +227,8 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         });
       });
 
-      // Keyboard Listener supporting holding keys down for rapid page turning
-      const handleKeyDown = (e: KeyboardEvent) => {
+      // Keyboard Listener on Parent Window
+      const handleParentKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
           triggerPageTurn('next', rend);
         } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
@@ -238,40 +244,29 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         }
       };
 
-      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('keydown', handleParentKeyDown);
       window.addEventListener('resize', handleResize);
 
       setRendition(rend);
 
       return () => {
-        window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('keydown', handleParentKeyDown);
         window.removeEventListener('resize', handleResize);
       };
     }
-  }, [isReading, fileType, epubBook, scrollMode]);
+  }, [isReading, fileType, epubBook]);
 
-  // Page turn trigger with animation
-  const triggerPageTurn = (direction: 'next' | 'prev', rendInstance?: Rendition | null) => {
-    setPageTurnAnim(true);
-    setTimeout(() => setPageTurnAnim(false), 200);
-
-    const r = rendInstance || rendition;
-    if (fileType === 'epub' && r) {
-      if (direction === 'next') r.next();
-      else r.prev();
-    } else {
-      if (direction === 'next') {
-        setCurrentTextChapterIndex((prev) => Math.min(textChapters.length - 1, prev + 1));
-      } else {
-        setCurrentTextChapterIndex((prev) => Math.max(0, prev - 1));
-      }
-    }
-  };
-
-  // Update themes and fonts
+  // Handle Dynamic Font & Theme Updates inside iframe & parent
   useEffect(() => {
     if (rendition) {
-      const fontHref = loadGoogleFont(selectedFont.googleName);
+      const fontHref = getGoogleFontHref(selectedFont.googleName);
+
+      if (typeof document !== 'undefined' && !document.querySelector(`link[href="${fontHref}"]`)) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = fontHref;
+        document.head.appendChild(link);
+      }
 
       const themeCss = 
         theme === 'dark' 
@@ -294,15 +289,36 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     }
   }, [theme, fontSize, selectedFont, rendition]);
 
-  // Robust Dictionary Lookup Function with Backup API
+  // Kindle-Style Page Turn Animation Trigger
+  const triggerPageTurn = (direction: 'next' | 'prev', rendInstance?: Rendition | null) => {
+    setPageFlipAnim(direction);
+    setTimeout(() => setPageFlipAnim(null), 250);
+
+    const r = rendInstance || rendition;
+    if (fileType === 'epub' && r) {
+      if (direction === 'next') r.next();
+      else r.prev();
+    } else {
+      if (direction === 'next') {
+        setCurrentTextChapterIndex((prev) => Math.min(textChapters.length - 1, prev + 1));
+      } else {
+        setCurrentTextChapterIndex((prev) => Math.max(0, prev - 1));
+      }
+    }
+  };
+
+  // Robust Dictionary Lookup Function with Dual API Sources
   const lookupWord = async (word: string) => {
-    const cleanWord = word.toLowerCase().trim();
+    const cleanWord = word.toLowerCase().replace(/[^a-z]/g, '').trim();
+    if (!cleanWord) return;
+
     setSelectedWord(cleanWord);
     setDictionaryWord(cleanWord);
     setDictionaryLoading(true);
     setDictionaryMeanings([]);
 
     try {
+      // 1. Primary API: Free Dictionary API
       const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${cleanWord}`);
       if (res.ok) {
         const data = await res.json();
@@ -320,6 +336,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         }
         setDictionaryMeanings(meanings);
       } else {
+        // 2. Secondary Fallback API: Datamuse Word Definitions API
         const backupRes = await fetch(`https://api.datamuse.com/words?sp=${cleanWord}&md=d&max=1`);
         if (backupRes.ok) {
           const backupData = await backupRes.json();
@@ -386,7 +403,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
         <div className="p-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 max-w-xl mx-auto my-12">
           <div className="w-14 h-14 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
           <h3 className="text-lg font-bold text-slate-900 dark:text-white">Opening E-Book Workspace...</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Loading chapters, Google fonts & scroll layouts.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Loading chapters, typography & page layouts.</p>
         </div>
       )}
 
@@ -438,11 +455,11 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-indigo-500 shrink-0" />
-                <span>Horizontal Paginated & Vertical Scroll Modes</span>
+                <span>Instant Dictionary & 100+ Google Fonts</span>
               </div>
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-amber-500 shrink-0" />
-                <span>Page Turn Animations & Fast Key Cycle</span>
+                <span>Kindle Page Turn Effect & Zoom Controls</span>
               </div>
             </div>
           </div>
@@ -459,7 +476,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Close</span>
+              <span>Close Reader</span>
             </button>
 
             <div className="flex items-center gap-2 truncate max-w-xs sm:max-w-md font-semibold text-sm">
@@ -468,28 +485,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Vertical / Horizontal Scroll Mode Toggle */}
-              {fileType === 'epub' && (
-                <button
-                  onClick={() => setScrollMode(scrollMode === 'horizontal' ? 'vertical' : 'horizontal')}
-                  className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5"
-                  title="Toggle Horizontal Paginated vs Vertical Continuous Scroll"
-                >
-                  {scrollMode === 'horizontal' ? (
-                    <>
-                      <MoveHorizontal className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>Flip Pages</span>
-                    </>
-                  ) : (
-                    <>
-                      <MoveVertical className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>Continuous Scroll</span>
-                    </>
-                  )}
-                </button>
-              )}
-
-              {/* 100+ Fonts Picker */}
+              {/* 100+ Fonts Picker Dropdown */}
               <div className="relative">
                 <button
                   onClick={() => setShowFontMenu(!showFontMenu)}
@@ -546,7 +542,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
 
               {/* Font Size */}
               <button
-                onClick={() => setFontSize(Math.max(14, fontSize - 2))}
+                onClick={() => setFontSize(Math.max(12, fontSize - 2))}
                 className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
                 title="Decrease Font Size"
               >
@@ -556,12 +552,40 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
               <span className="font-semibold text-xs min-w-[24px] text-center">{fontSize}px</span>
 
               <button
-                onClick={() => setFontSize(Math.min(36, fontSize + 2))}
+                onClick={() => setFontSize(Math.min(40, fontSize + 2))}
                 className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
                 title="Increase Font Size"
               >
                 <ZoomIn className="w-4 h-4" />
               </button>
+
+              {/* Page Zoom Control */}
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                <span className="text-[11px] font-mono font-bold">{zoomScale}%</span>
+                <button
+                  onClick={() => setZoomScale(Math.min(180, zoomScale + 10))}
+                  className="hover:text-indigo-600 text-xs font-bold px-1"
+                  title="Zoom In Page"
+                >
+                  +
+                </button>
+                <button
+                  onClick={() => setZoomScale(Math.max(70, zoomScale - 10))}
+                  className="hover:text-indigo-600 text-xs font-bold px-1"
+                  title="Zoom Out Page"
+                >
+                  -
+                </button>
+                {zoomScale !== 100 && (
+                  <button
+                    onClick={() => setZoomScale(100)}
+                    className="p-0.5 hover:text-rose-500"
+                    title="Reset Zoom"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
 
               {/* Theme Toggle */}
               <button
@@ -576,7 +600,6 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                 <span>{theme}</span>
               </button>
 
-              {/* Keyboard Shortcuts Helper Toggle */}
               <button
                 onClick={() => setShowShortcuts(!showShortcuts)}
                 className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
@@ -632,7 +655,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                 <div className="space-y-2">
                   <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">→</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Space</kbd> <span>Next Page</span></div>
                   <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">←</kbd> <span>Previous Page</span></div>
-                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Hold Arrow Key</kbd> <span>Rapid Page Flip</span></div>
+                  <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Highlight Word</kbd> <span>Dictionary</span></div>
                   <div className="flex justify-between"><kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">Esc</kbd> <span>Close Reader</span></div>
                 </div>
               </div>
@@ -669,8 +692,17 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
               </div>
             )}
 
-            {/* Reader Viewport Container with Page Turn Animation */}
-            <div className={`flex-1 w-full h-full p-2 sm:p-6 flex items-center justify-center overflow-hidden transition-all duration-200 ${pageTurnAnim ? 'opacity-40 scale-[0.995]' : 'opacity-100 scale-100'}`}>
+            {/* Reader Viewport Container with Kindle Page Turn Flip Animation & Zoom */}
+            <div 
+              className={`flex-1 w-full h-full p-2 sm:p-6 flex items-center justify-center overflow-hidden transition-all duration-200 ${
+                pageFlipAnim === 'next' 
+                  ? '-translate-x-4 opacity-60' 
+                  : pageFlipAnim === 'prev' 
+                  ? 'translate-x-4 opacity-60' 
+                  : 'translate-x-0 opacity-100'
+              }`}
+              style={{ transform: `scale(${zoomScale / 100})`, transformOrigin: 'center center' }}
+            >
               {fileType === 'epub' ? (
                 <div ref={viewerRef} className="w-full h-full flex items-center justify-center overflow-hidden" />
               ) : (
