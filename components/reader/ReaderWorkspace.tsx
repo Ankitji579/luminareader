@@ -317,6 +317,15 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
           * {
             font-family: ${selectedFont.family} !important;
           }
+          html, body {
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+          }
+          html::-webkit-scrollbar, body::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+          }
           body {
             font-family: ${selectedFont.family} !important;
             font-size: ${fontSize}px !important;
@@ -1033,14 +1042,14 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                 {fileType === 'epub' && !useFallbackReader ? (
                   <div 
                     ref={viewerRef} 
-                    className={`w-full h-full relative ${
+                    className={`w-full h-full relative no-scrollbar hide-scrollbar ${
                       scrollMode === 'vertical' ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden'
                     }`}
                   />
                 ) : (
                   /* Fallback & TXT Document Reader Container */
                   <div 
-                    className={`w-full h-full max-w-4xl mx-auto p-4 sm:p-8 ${
+                    className={`w-full h-full max-w-4xl mx-auto p-4 sm:p-8 no-scrollbar hide-scrollbar ${
                       scrollMode === 'vertical' ? 'overflow-y-auto space-y-12' : 'overflow-y-auto flex flex-col justify-start'
                     }`}
                   >
@@ -1063,7 +1072,7 @@ I had called upon my friend, Mr. Sherlock Holmes, one day in the autumn of last 
                         </div>
                       ))
                     ) : (
-                      <div className="space-y-6 py-4">
+                      <div className="space-y-6 py-4 no-scrollbar hide-scrollbar">
                         <h3 className="text-xl font-bold border-b pb-3 opacity-90">
                           {textChapters[currentChapterIndex]?.title || "Chapter"}
                         </h3>
