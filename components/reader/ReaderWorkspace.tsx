@@ -447,6 +447,8 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+
   // Save text selection range so we can restore it after state updates
   const savedRangeRef = useRef<Range | null>(null);
   // Store persistent user highlights
@@ -885,7 +887,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         targetEl = document.getElementById(anchor) || document.querySelector(`[name="${anchor}"]`);
       }
       if (scrollMode === "vertical" && !targetEl) {
-        targetEl = document.getElementById(`chapter-${chapterIdx}`);
+        targetEl = document.getElementById(`chapter-container-${chapterIdx}`);
       }
       
       if (targetEl) {
@@ -1087,6 +1089,23 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
       }
     });
   }, []);
+
+  // Load highlights from localStorage
+  useEffect(() => {
+    if (bookTitle && typeof window !== "undefined") {
+      const savedHl = localStorage.getItem(`lumina_hl_${bookTitle}`);
+      if (savedHl) {
+        try {
+          customHighlightsRef.current = JSON.parse(savedHl);
+          setTimeout(() => {
+            renderCSSHighlights();
+          }, 300);
+        } catch(e) {
+          console.warn("Failed to parse saved highlights", e);
+        }
+      }
+    }
+  }, [bookTitle, renderCSSHighlights]);
 
   const saveHighlightsLocal = () => {
     if (typeof window !== "undefined" && bookTitle) {
