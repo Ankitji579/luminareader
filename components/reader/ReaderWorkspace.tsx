@@ -888,45 +888,43 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         targetEl = document.getElementById(`chapter-${chapterIdx}`);
       }
       
-      if (scrollMode === "vertical") {
-        if (targetEl && scrollContainerRef.current) {
-          console.log("Jumping to vertical chapter", chapterIdx, targetEl);
-          // Safest cross-browser scrolling approach
-          const container = scrollContainerRef.current;
-          const containerRect = container.getBoundingClientRect();
-          const targetRect = targetEl.getBoundingClientRect();
-          
-          // Since container has transform: scale, we unscale the difference
-          const scale = zoomScale / 100;
-          const unscaledDiff = (targetRect.top - containerRect.top) / scale;
-          
-          container.scrollTo({ top: container.scrollTop + unscaledDiff - 20, behavior: "smooth" });
+      if (targetEl) {
+        try {
+          targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        } catch(e) {
+           // fallback if scrollIntoView fails
+           if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = (targetEl as HTMLElement).offsetTop;
         }
-      } else {
-        if (targetEl && scrollContainerRef.current) {
-          const container = scrollContainerRef.current;
-          const containerRect = container.getBoundingClientRect();
-          const targetRect = targetEl.getBoundingClientRect();
-          const scale = zoomScale / 100;
-          const unscaledDiff = (targetRect.top - containerRect.top) / scale;
-          container.scrollTo({ top: container.scrollTop + unscaledDiff - 20, behavior: "smooth" });
-        } else if (scrollContainerRef.current) {
-          scrollContainerRef.current.scrollTop = 0;
-        }
+      } else if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
       }
-    }, 50);
-  }, [scrollMode, zoomScale]);
+    }, 150); // Increased timeout to ensure React re-render is fully committed
+  }, [scrollMode]);
 
   const handleContentClick = (e: React.MouseEvent) => {
+    // If dictionary bubble is open, close it
+    if (selectedWord) closeDictionaryBubble();
+
     const anchorEl = (e.target as HTMLElement).closest("a");
     if (anchorEl) {
       const targetFile = anchorEl.getAttribute("data-chapter-target");
       const anchor = anchorEl.getAttribute("data-anchor-target");
       const href = anchorEl.getAttribute("href");
+      
       if (targetFile || (href && !href.startsWith("http") && !href.startsWith("mailto"))) {
         e.preventDefault(); e.stopPropagation();
-        const fileToFind = (targetFile || href || "").split("#")[0].split("/").pop() || "";
-        const targetIdx = pathMap[fileToFind] ?? (targetFile ? pathMap[targetFile] : undefined);
+        
+        let rawFileToFind = (targetFile || href || "").split("#")[0].split("/").pop() || "";
+        let fileToFind = "";
+        try { fileToFind = decodeURIComponent(rawFileToFind); } catch(e) { fileToFind = rawFileToFind; }
+        
+        let decodedTarget = targetFile || "";
+        try { decodedTarget = decodeURIComponent(targetFile || ""); } catch(e) {}
+        
+        const targetIdx = pathMap[fileToFind] ?? pathMap[rawFileToFind] ?? pathMap[decodedTarget] ?? pathMap[targetFile || ""];
+        
+        console.log("Navigating to link", { targetFile, href, fileToFind, targetIdx });
+        
         if (typeof targetIdx === "number" && targetIdx >= 0 && targetIdx < chapters.length) {
           jumpToChapter(targetIdx, anchor || undefined);
           return;
