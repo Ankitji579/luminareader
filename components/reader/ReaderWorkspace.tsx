@@ -286,6 +286,7 @@ interface Bookmark {
 export default function ReaderWorkspace({ initialFormat }: { initialFormat?: string }) {
   // Book & Content States
   const [fileName, setFileName] = useState<string>("");
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [fileType, setFileType] = useState<string>("");
   const [isReading, setIsReading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -701,69 +702,12 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
         setIsReading(true);
         setLoading(false);
       } else if (ext === "pdf") {
-        // PDF Parsing Logic using pdfjs-dist
-        const pdfjsLib = await import('pdfjs-dist');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-        
-        const arrayBuffer = await f.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        
-        const tempChapters = [];
-        const tempToc = [];
-        const tempPathMap: Record<string, number> = {};
-        
-        // Group multiple PDF pages into "chunks" so we don't have 500 tiny chapters
-        let currentChunk = "";
-        let chunkIndex = 0;
-        
-        for (let i = 1; i <= pdf.numPages; i++) {
-            try {
-              const page = await pdf.getPage(i);
-              const textContent = await page.getTextContent();
-              // Try to preserve basic paragraph structure by checking vertical positions if needed, 
-              // but for simplicity join with spaces and let the browser wrap
-              const textItems = textContent.items.map(item => (item as any).str || "").join(" ");
-              
-              currentChunk += textItems + "<br/><br/>";
-              
-              // Every 10 pages, create a new chapter
-              if (i % 10 === 0 || i === pdf.numPages) {
-                  chunkIndex++;
-                  const chTitle = `Section ${chunkIndex} (Pages ${i - (i % 10 === 0 ? 9 : (i % 10) - 1)}-${i})`;
-                  
-                  tempChapters.push({
-                     id: `pdf-sec-${chunkIndex}`,
-                     fullPath: `pdf-sec-${chunkIndex}`,
-                     fileName: `pdf-sec-${chunkIndex}`,
-                     title: chTitle,
-                     html: currentChunk,
-                     textLength: currentChunk.length
-                  });
-                  tempToc.push({ label: chTitle, chapterIndex: chunkIndex - 1 });
-                  tempPathMap[`pdf-sec-${chunkIndex}`] = chunkIndex - 1;
-                  
-                  currentChunk = "";
-              }
-            } catch(e) {
-               console.warn("Failed to parse PDF page", i, e);
-            }
-        }
-        
+        const url = URL.createObjectURL(f);
+        setPdfUrl(url);
         setBookTitle(f.name.replace(/\.[^/.]+$/, ""));
         setBookAuthor("PDF Document");
-        setChapters(tempChapters.length > 0 ? tempChapters : [{ id: "c1", title: "Empty", html: "No text found", textLength: 0, fullPath: "c1", fileName: "c1" }]);
-        setToc(tempToc);
-        setPathMap(tempPathMap);
-        
-        const savedProg = localStorage.getItem(`lumina_prog_${f.name}`);
-        if (savedProg) {
-          try {
-            setCurrentChapterIndex(JSON.parse(savedProg).chapterIndex || 0);
-          } catch(e) { setCurrentChapterIndex(0); }
-        } else {
-          setCurrentChapterIndex(0);
-        }
-
+        setChapters([]);
+        setToc([]);
         setIsReading(true);
         setLoading(false);
       } else {
@@ -1686,7 +1630,9 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                   transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease",
                 }}
               >
-                {scrollMode === "vertical" ? (
+                {fileType === "pdf" && pdfUrl ? (
+                   <iframe src={pdfUrl} className="w-full h-full border-none" style={{ minHeight: '85vh' }} title="PDF Viewer" />
+                ) : scrollMode === "vertical" ? (
                   <div className="max-w-3xl mx-auto w-full space-y-16 pb-24">
                     {chapters.map((ch, idx) => (
                       <article id={`chapter-container-${idx}`} key={ch.id || idx} className="space-y-6" style={{ borderBottom: `1px solid ${T.toolbarBorder}`, paddingBottom: "4rem" }}>
