@@ -1204,7 +1204,37 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
       style={isReading ? { background: T.bg, color: T.text } : undefined}
     >
       {(isReading || pdfModePrompt) && (
-        <style>{'#lumina-global-header { display: none !important; } body { overflow: hidden; }'}</style>
+          <>
+            <style>{'#lumina-global-header { display: none !important; } body { overflow: hidden; }'}</style>
+            <style>{`
+          .lumina-prose {
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+            max-width: 100% !important;
+          }
+          .lumina-prose img, .lumina-prose svg, .lumina-prose video, .lumina-prose iframe {
+            max-width: 100% !important;
+            height: auto !important;
+            margin: 1rem auto;
+            display: block;
+          }
+          .lumina-prose table {
+            width: 100% !important;
+            max-width: 100% !important;
+            display: block;
+            overflow-x: auto;
+          }
+          .lumina-prose pre, .lumina-prose code {
+            white-space: pre-wrap !important;
+            word-wrap: break-word !important;
+            max-width: 100%;
+            overflow-x: auto;
+          }
+          .lumina-prose p, .lumina-prose div, .lumina-prose span {
+            max-width: 100% !important;
+          }
+        `}</style>
+          </>
       )}
 
       {loading && (
@@ -1677,7 +1707,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                           <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: T.panelAccent }}>Chapter {idx + 1} of {chapters.length}</span>
                           <h2 className="text-2xl sm:text-3xl font-extrabold mt-1 tracking-tight" style={{ color: T.text }}>{ch.title}</h2>
                         </header>
-                        <div className="leading-relaxed space-y-5 select-text" style={{ fontSize: `${fontSize}px`, fontFamily: selectedFont.family, lineHeight: "1.85", color: T.proseText }} dangerouslySetInnerHTML={{ __html: ch.html }} onMouseUp={handleTextMouseUp} />
+                        <div className="leading-relaxed space-y-5 select-text lumina-prose" style={{ fontSize: `${fontSize}px`, fontFamily: selectedFont.family, lineHeight: "1.85", color: T.proseText }} dangerouslySetInnerHTML={{ __html: ch.html }} onMouseUp={handleTextMouseUp} />
                       </article>
                     ))}
                   </div>
@@ -1689,7 +1719,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                           <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: T.panelAccent }}>Chapter {currentChapterIndex + 1} of {chapters.length}</span>
                           <h2 className="text-2xl sm:text-3xl font-extrabold mt-1 tracking-tight" style={{ color: T.text }}>{currentChapter.title}</h2>
                         </header>
-                        <div className="leading-relaxed space-y-5 select-text" style={{ fontSize: `${fontSize}px`, fontFamily: selectedFont.family, lineHeight: "1.85", color: T.proseText }} dangerouslySetInnerHTML={{ __html: currentChapter.html }} onMouseUp={handleTextMouseUp} />
+                        <div className="leading-relaxed space-y-5 select-text lumina-prose" style={{ fontSize: `${fontSize}px`, fontFamily: selectedFont.family, lineHeight: "1.85", color: T.proseText }} dangerouslySetInnerHTML={{ __html: currentChapter.html }} onMouseUp={handleTextMouseUp} />
                       </article>
                     ) : (
                       <p className="text-center py-16" style={{ color: T.subtext }}>No chapter content loaded.</p>

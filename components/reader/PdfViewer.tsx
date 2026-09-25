@@ -127,10 +127,10 @@ function PdfPage({ pdf, pageNumber, zoomScale, isDark }: { pdf: any; pageNumber:
   }, [zoomScale]);
 
   return (
-    <div className="bg-white dark:bg-[#121212] shadow-xl shadow-black/10 dark:shadow-black/40 overflow-hidden flex items-center justify-center transition-colors duration-300" style={{ minHeight: "800px", minWidth: "600px", maxWidth: "100%" }}>
+    <div className="bg-white dark:bg-[#121212] shadow-xl shadow-black/10 dark:shadow-black/40 overflow-hidden flex items-center justify-center transition-colors duration-300" style={{ minHeight: "50vh", width: "100%", maxWidth: "100%" }}>
       <canvas 
         ref={canvasRef} 
-        className="block max-w-full" 
+        className="block max-w-full h-auto" 
         style={{ 
           filter: isDark ? 'invert(1) hue-rotate(180deg) contrast(1.1) brightness(0.9)' : 'none',
           transition: 'filter 0.3s ease'
