@@ -10,7 +10,7 @@ export default function HomePage() {
       <div className="absolute inset-0 z-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
       <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_800px_at_50%_-30%,#4f46e520,transparent)]"></div>
 
-      <main className="flex-1 flex flex-col lg:flex-row items-center justify-center w-full max-w-7xl mx-auto px-6 py-12 lg:py-24 gap-16 relative z-10">
+      <section className="w-full max-w-7xl mx-auto px-6 pt-12 lg:pt-16 pb-12 lg:pb-24 flex flex-col lg:flex-row items-center gap-16 relative z-10">
         
         {/* Left Column: Copy & Typography */}
         <div className="flex-1 space-y-10 lg:pr-10 text-center lg:text-left z-10 w-full">
@@ -60,7 +60,7 @@ export default function HomePage() {
           </ErrorBoundary>
         </div>
 
-      </main>
+      </section>
       
     </div>
   );
