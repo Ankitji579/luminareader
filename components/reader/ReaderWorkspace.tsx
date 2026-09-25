@@ -1212,6 +1212,11 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
             overflow-wrap: break-word !important;
             max-width: 100% !important;
           }
+          /* Force user font, color on ALL nested elements */
+          .lumina-prose, .lumina-prose * {
+            font-family: ${selectedFont.name === "System Default" ? "inherit" : `"${selectedFont.name}", sans-serif`} !important;
+            color: ${T.proseText} !important;
+          }
           .lumina-prose img, .lumina-prose svg, .lumina-prose video, .lumina-prose iframe {
             max-width: 100% !important;
             height: auto !important;
@@ -1324,7 +1329,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                   )}
                 </button>
                 {showBookmarks && (
-                  <div className="absolute right-0 top-11 z-50 w-72 p-3 rounded-2xl shadow-2xl space-y-2" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
+                  <div className="fixed right-2 sm:right-6 top-16 z-[120] w-72 p-3 rounded-2xl shadow-2xl space-y-2" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
                     <div className="flex items-center justify-between pb-2" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
                       <span className="font-bold text-xs">📌 Bookmarks</span>
                       <button onClick={() => setShowBookmarks(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
@@ -1381,7 +1386,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
                 {/* Color Picker Dropdown (Safely outside the overflow-hidden box!) */}
                 {showHighlightPicker && (
-                  <div className="absolute right-0 top-11 z-50 w-48 p-2 rounded-2xl shadow-2xl space-y-1" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
+                  <div className="fixed right-2 sm:right-6 top-16 z-[120] w-48 p-2 rounded-2xl shadow-2xl space-y-1" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
                     <div className="flex items-center justify-between pb-2 mb-1" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
                       <span className="font-bold text-xs px-1">Colors</span>
                       <button onClick={() => setShowHighlightPicker(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
@@ -1402,7 +1407,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                   <Type className="w-4 h-4" />
                 </button>
                 {showFontMenu && (
-                  <div className="absolute right-0 top-11 z-50 w-80 p-3 rounded-2xl shadow-2xl space-y-2.5" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
+                  <div className="fixed right-2 sm:right-6 top-16 z-[120] w-80 p-3 rounded-2xl shadow-2xl space-y-2.5" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
                     <div className="flex items-center justify-between pb-2" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
                       <div><span className="font-bold text-xs">116 Google Fonts</span><span className="text-[10px] block" style={{ color: T.panelSubtext }}>Select font to apply live</span></div>
                       <button onClick={() => setShowFontMenu(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
@@ -1453,7 +1458,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                   <span className="hidden md:inline">{T.emoji}</span>
                 </button>
                 {showThemePicker && (
-                  <div className="absolute right-0 top-11 z-50 w-72 p-3 rounded-2xl shadow-2xl space-y-2" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
+                  <div className="fixed right-2 sm:right-6 top-16 z-[120] w-72 p-3 rounded-2xl shadow-2xl space-y-2" style={{ background: T.panelBg, border: `1px solid ${T.panelBorder}`, color: T.panelText }}>
                     <div className="flex items-center justify-between pb-2" style={{ borderBottom: `1px solid ${T.panelBorder}` }}>
                       <span className="font-bold text-xs">16 Themes</span>
                       <button onClick={() => setShowThemePicker(false)} style={{ color: T.panelSubtext }}><X className="w-4 h-4" /></button>
