@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTheme } from 'next-themes';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Safe worker loading for Next.js (bypasses cross-origin worker CORS issues)
@@ -8,6 +9,10 @@ if (typeof window !== "undefined") {
 }
 
 export default function PdfViewer({ file, zoomScale }: { file: File | Blob; zoomScale: number }) {
+  const { theme, systemTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const isDark = mounted && (theme === "dark" || (theme === "system" && systemTheme === "dark"));
   const [pdf, setPdf] = useState<any>(null);
   const [numPages, setNumPages] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -63,13 +68,13 @@ export default function PdfViewer({ file, zoomScale }: { file: File | Blob; zoom
   return (
     <div className="flex flex-col items-center gap-4 w-full pb-32">
       {Array.from(new Array(numPages), (el, index) => (
-        <PdfPage key={`page-${index + 1}`} pdf={pdf} pageNumber={index + 1} zoomScale={zoomScale} />
+        <PdfPage key={`page-${index + 1}`} pdf={pdf} pageNumber={index + 1} zoomScale={zoomScale} isDark={isDark} />
       ))}
     </div>
   );
 }
 
-function PdfPage({ pdf, pageNumber, zoomScale }: { pdf: any; pageNumber: number; zoomScale: number }) {
+function PdfPage({ pdf, pageNumber, zoomScale, isDark }: { pdf: any; pageNumber: number; zoomScale: number; isDark: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [rendered, setRendered] = useState(false);
 
@@ -127,8 +132,15 @@ function PdfPage({ pdf, pageNumber, zoomScale }: { pdf: any; pageNumber: number;
   }, [zoomScale]);
 
   return (
-    <div className="bg-white shadow-xl shadow-black/10 overflow-hidden flex items-center justify-center" style={{ minHeight: "800px", minWidth: "600px", maxWidth: "100%" }}>
-      <canvas ref={canvasRef} className="block max-w-full" />
+    <div className="bg-white dark:bg-[#121212] shadow-xl shadow-black/10 dark:shadow-black/40 overflow-hidden flex items-center justify-center transition-colors duration-300" style={{ minHeight: "800px", minWidth: "600px", maxWidth: "100%" }}>
+      <canvas 
+        ref={canvasRef} 
+        className="block max-w-full" 
+        style={{ 
+          filter: isDark ? 'invert(1) hue-rotate(180deg) contrast(1.1) brightness(0.9)' : 'none',
+          transition: 'filter 0.3s ease'
+        }} 
+      />
     </div>
   );
 }
