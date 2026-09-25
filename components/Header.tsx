@@ -21,7 +21,7 @@ export default function Header() {
         <div className="flex items-center gap-1 sm:gap-3">
           
           <Link
-            href="/#library-section"
+            href="/library"
             className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 dark:text-slate-300 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/30 transition-all"
           >
             <Library className="w-4 h-4" />

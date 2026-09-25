@@ -354,6 +354,15 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   const [pathMap, setPathMap] = useState<Record<string, number>>({});
   const [currentChapterIndex, setCurrentChapterIndex] = useState<number>(0);
 
+  // Auto-load book from library redirect
+  useEffect(() => {
+    const bookToLoad = sessionStorage.getItem("lumina_load_book");
+    if (bookToLoad) {
+      sessionStorage.removeItem("lumina_load_book");
+      loadFromLibrary(bookToLoad);
+    }
+  }, []);
+
   // Customization & Typography
   const [fontSize, setFontSize] = useState<number>(19);
   const [zoomScale, setZoomScale] = useState<number>(100);
