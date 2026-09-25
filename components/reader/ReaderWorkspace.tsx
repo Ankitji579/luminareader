@@ -1199,7 +1199,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
           
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-purple-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
           
-          <div className="max-w-2xl mx-auto space-y-8 relative z-10">
+          <div className="max-w-2xl mx-auto space-y-6 relative z-10">
             <div className="w-24 h-24 mx-auto rounded-[2rem] bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-2xl shadow-indigo-500/30 group-hover:scale-105 transition-transform duration-500 ease-out rotate-3 group-hover:rotate-6">
               <Upload className="w-10 h-10 drop-shadow-md -rotate-3 group-hover:-rotate-6 transition-transform duration-500" />
             </div>
@@ -1224,7 +1224,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
 
       {/* ── CONTINUE READING & MY LIBRARY ──────────────────────────────────── */}
       {!isReading && !loading && library.length > 0 && (
-        <div className="max-w-3xl mx-auto mt-8 mb-16 space-y-8 animate-fade-in px-4">
+        <div id="library-section" className="max-w-3xl mx-auto mt-8 mb-16 space-y-8 animate-fade-in px-4">
           
           {/* Continue Reading (Most Recent) */}
           <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-700 text-white shadow-xl shadow-indigo-500/20 relative overflow-hidden group cursor-pointer hover:scale-[1.01] transition-transform" onClick={() => loadFromLibrary(library[0].name)}>

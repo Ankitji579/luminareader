@@ -10,22 +10,12 @@ export default function HomePage() {
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-violet-500/10 blur-[120px] pointer-events-none" />
 
       {/* Ultra Minimalist Header */}
-      <header className="absolute top-0 w-full z-50 flex items-center justify-between px-6 py-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <BookOpen className="w-5 h-5 text-white" />
-          </div>
-          <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">Lumina<span className="text-indigo-500">.</span></span>
-        </div>
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-        </div>
-      </header>
+      
 
       {/* Main Hero & Workspace */}
-      <main className="flex-1 flex flex-col items-center justify-center w-full px-4 pt-32 pb-20 relative z-10">
+      <main className="flex-1 flex flex-col items-center justify-center w-full px-4 pt-12 pb-12 relative z-10">
         
-        <div className="text-center space-y-4 mb-12">
+        <div className="text-center space-y-4 mb-8">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-semibold tracking-wide uppercase mb-4 animate-fade-in">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
