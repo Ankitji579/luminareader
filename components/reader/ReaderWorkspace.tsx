@@ -6,7 +6,7 @@ import {
   List, ArrowLeft, ArrowRight, ShieldCheck, Sparkles, FileText, CheckCircle2,
   Search, X, Type, ChevronDown, HelpCircle, RotateCcw,
   Volume2, MoveVertical, MoveHorizontal, Compass, Maximize2, Minimize2,
-  ChevronLeft, ChevronRight, Palette, Bookmark, BookmarkCheck, Globe, Highlighter,
+  ChevronLeft, ChevronRight, Palette, Bookmark, BookmarkCheck, Globe, Highlighter, Eraser,
 } from "lucide-react";
 import { parseEpubArchive, ParsedBook, ParsedChapter, TocItem } from "@/lib/epub-parser";
 import { GOOGLE_FONTS, FontOption } from "@/lib/fonts-data";
@@ -330,6 +330,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
   const [activeHighlightColor, setActiveHighlightColor] = useState(HIGHLIGHT_COLORS[0]);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const [isHighlightMode, setIsHighlightMode] = useState(false); // NEW: Dedicated highlighter mode
+  const [isEraserMode, setIsEraserMode] = useState(false); // NEW: Dedicated eraser mode
 
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -716,26 +717,35 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     });
   }, []);
 
-  const toggleHighlight = useCallback((range: Range, color: typeof HIGHLIGHT_COLORS[0]) => {
-    // Check if the user selected an existing highlight to toggle it off/re-color
+  const applyHighlightColor = useCallback((range: Range, color: typeof HIGHLIGHT_COLORS[0]) => {
+    // Check if the exact range exists
     const existingIdx = customHighlightsRef.current.findIndex(h => {
       return h.range.toString().trim() === range.toString().trim() && 
              h.range.commonAncestorContainer === range.commonAncestorContainer;
     });
 
     if (existingIdx >= 0) {
-      const existing = customHighlightsRef.current[existingIdx];
-      if (existing.colorId === color.id) {
-        // Same color -> Remove it (de-highlight)
-        customHighlightsRef.current.splice(existingIdx, 1);
-      } else {
-        // Different color -> Replace color
-        customHighlightsRef.current[existingIdx].colorId = color.id;
-      }
+      // It exists -> Replace color
+      customHighlightsRef.current[existingIdx].colorId = color.id;
     } else {
       // Add new highlight
       customHighlightsRef.current.push({ id: Date.now().toString(), range, colorId: color.id });
     }
+
+    renderCSSHighlights();
+  }, [renderCSSHighlights]);
+
+  const eraseHighlights = useCallback((range: Range) => {
+    // Find all highlights that intersect with the erased range
+    customHighlightsRef.current = customHighlightsRef.current.filter(h => {
+      // Does h.range intersect with range?
+      // An intersection happens if range starts before h.range ends AND range ends after h.range starts
+      const startsBeforeOtherEnds = range.compareBoundaryPoints(Range.START_TO_END, h.range) <= 0;
+      const endsAfterOtherStarts = range.compareBoundaryPoints(Range.END_TO_START, h.range) >= 0;
+      const intersects = startsBeforeOtherEnds && endsAfterOtherStarts;
+      
+      return !intersects; // KEEP highlights that DO NOT intersect
+    });
 
     renderCSSHighlights();
   }, [renderCSSHighlights]);
@@ -752,11 +762,20 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
     
     const range = selection.getRangeAt(0).cloneRange();
 
+    // ── ERASER MODE ──
+    if (isEraserMode) {
+      if (typeof CSS !== "undefined" && "highlights" in CSS) {
+        eraseHighlights(range);
+      }
+      selection.removeAllRanges();
+      return; // Skip dictionary
+    }
+
     // ── HIGHLIGHTER MODE ──
     if (isHighlightMode) {
       if (typeof CSS !== "undefined" && "highlights" in CSS) {
         // Modern approach: Native Highlight API
-        toggleHighlight(range, activeHighlightColor);
+        applyHighlightColor(range, activeHighlightColor);
       } else {
         // Fallback for older browsers
         try {
@@ -908,16 +927,27 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
               <div className="flex items-center rounded-lg overflow-hidden" style={{ border: `1px solid ${T.btnBorder}`, background: T.btnBg }}>
                 {/* Mode Toggle Button */}
                 <button 
-                  onClick={() => setIsHighlightMode(!isHighlightMode)} 
-                  className="px-2.5 py-1.5 flex items-center gap-1.5 text-xs font-semibold transition-colors" 
-                  style={isHighlightMode ? { background: activeHighlightColor.bg, color: T.panelText } : { background: "transparent", color: T.btnText }} 
+                  onClick={() => { setIsHighlightMode(!isHighlightMode); setIsEraserMode(false); }} 
+                  className="px-2.5 py-1.5 flex items-center gap-1.5 text-xs font-semibold transition-colors border-r" 
+                  style={isHighlightMode ? { background: activeHighlightColor.bg, color: T.panelText, borderColor: T.btnBorder } : { background: "transparent", color: T.btnText, borderColor: T.btnBorder }} 
                   title={isHighlightMode ? "Highlighter Mode ON - Drag to highlight text" : "Turn On Highlighter Mode"}
                 >
                   <Highlighter className="w-3.5 h-3.5" style={!isHighlightMode ? { color: activeHighlightColor.border } : {}} />
                   <span className="hidden md:inline text-[10px] uppercase tracking-wider">{isHighlightMode ? "Highlighting" : "Highlight"}</span>
                 </button>
+
+                {/* Eraser Mode Toggle */}
+                <button 
+                  onClick={() => { setIsEraserMode(!isEraserMode); setIsHighlightMode(false); }}
+                  className="px-2.5 py-1.5 flex items-center transition-colors border-r"
+                  style={isEraserMode ? { background: T.panelAccent, color: T.panelAccentText, borderColor: T.btnBorder } : { background: "transparent", color: T.btnText, borderColor: T.btnBorder }}
+                  title="Eraser Mode - Drag over highlights to remove them"
+                >
+                  <Eraser className="w-3.5 h-3.5" />
+                </button>
+
                 {/* Color Picker Dropdown */}
-                <div className="relative border-l" style={{ borderColor: T.btnBorder }}>
+                <div className="relative">
                   <button onClick={() => setShowHighlightPicker(!showHighlightPicker)} className="px-1.5 py-1.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors h-full flex items-center">
                     <ChevronDown className="w-3 h-3" style={{ color: T.btnText }} />
                   </button>
@@ -929,7 +959,7 @@ export default function ReaderWorkspace({ initialFormat }: { initialFormat?: str
                       </div>
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         {HIGHLIGHT_COLORS.map(color => (
-                          <button key={color.id} onClick={() => { setActiveHighlightColor(color); setIsHighlightMode(true); setShowHighlightPicker(false); }} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105" style={{ background: color.bg, color: T.text, border: `1px solid ${color.border}`, opacity: activeHighlightColor.id === color.id ? 1 : 0.6 }}>
+                          <button key={color.id} onClick={() => { setActiveHighlightColor(color); setIsHighlightMode(true); setIsEraserMode(false); setShowHighlightPicker(false); }} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105" style={{ background: color.bg, color: T.text, border: `1px solid ${color.border}`, opacity: activeHighlightColor.id === color.id ? 1 : 0.6 }}>
                             <span className="w-3 h-3 rounded-full" style={{ background: color.border }} />
                             {color.label}
                           </button>
