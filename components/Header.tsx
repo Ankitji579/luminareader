@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { BookOpen, Sparkles, Layers, ShieldCheck } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 
 export default function Header() {
   return (
@@ -42,9 +43,10 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           <Link
             href="/read/epub-online"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 shadow-sm transition-all"
+            className="hidden sm:inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 shadow-sm transition-all"
           >
             <Sparkles className="w-4 h-4" />
             <span>Open Reader</span>

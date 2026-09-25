@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CookieConsent from "@/components/CookieConsent";
 import Script from "next/script";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://luminareader.com"),
@@ -26,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="scroll-smooth">
+    <html lang="en" className="scroll-smooth" suppressHydrationWarning>
       <head>
         {/* Google AdSense Script Integration */}
         <Script
@@ -37,12 +38,14 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col antialiased font-sans">
-        <Header />
-        <main className="flex-1">
-          {children}
-        </main>
-        <Footer />
-        <CookieConsent />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <Header />
+          <main className="flex-1">
+            {children}
+          </main>
+          <Footer />
+          <CookieConsent />
+        </ThemeProvider>
       </body>
     </html>
   );
